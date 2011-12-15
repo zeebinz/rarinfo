@@ -15,7 +15,7 @@
  *   $rar->open('./foo.rar'); // or $rar->setData($data);
  *   if ($rar->error) {
  *     echo "Error: {$rar->error}\n";
- *     exit;   
+ *     exit;
  *   }
  *
  *   // Check encryption
@@ -34,16 +34,21 @@
  *
  * </code>
  *
+ * For RAR file fragments - i.e. that may not contain a valid Marker Block - add 
+ * TRUE as the second parameter for the open() or setData() methods to skip the
+ * error messages and allow a forced search for valid File Header blocks.
+ *
  * @todo Plenty of parsing still possible, most format values have been added ;)
  * @link http://www.win-rar.com/index.php?id=24&kb_article_id=162
  *
  * @author     Hecks
- * @copyright  (c) 2010 Hecks
+ * @copyright  (c) 2010-2011 Hecks
  * @license    Modified BSD
- * @version    1.6
+ * @version    1.7
  *
  * CHANGELOG:
  * ----------
+ * 1.7 Improved support for RAR file fragments
  * 1.6 Added extra error checking to read method
  * 1.5 Improved getSummary method output
  * 1.4 Added filename sanity checks & maxFilenameLength variable
@@ -193,17 +198,20 @@ class RarInfo
 	 * @var string
 	 */
 	public $error;
-	
+		
 	/**
 	 * Loads data from the specified file (up to maxReadBytes) and analyses
 	 * the archive contents.
 	 *
 	 * @param   string  path to the file
+	 * @param   bool    true if file is a RAR fragment
 	 * @return  bool    false if archive analysis fails
 	 */
-	public function open($file)
+	public function open($file, $isFragment=false)
 	{
-		if ($this->isAnalyzed) {$this->reset();}
+		$this->isFragment = $isFragment;
+		$this->reset();
+		
 		if (!($rarFile = realpath($file))) {
 			trigger_error("File does not exist ($file)", E_USER_WARNING);
 			$this->error = 'File does not exist';
@@ -221,11 +229,14 @@ class RarInfo
 	 * archive contents.
 	 *
 	 * @param   string  archive data stored in a variable
+	 * @param   bool    true if data is a RAR fragment
 	 * @return  bool    false if archive analysis fails
 	 */	
-	public function setData(&$data)
+	public function setData(&$data, $isFragment=false)
 	{
-		if ($this->isAnalyzed) {$this->reset();}
+		$this->isFragment = $isFragment;
+		$this->reset();
+		
 		$this->data = substr($data, 0, $this->maxReadBytes);
 		$this->dataSize = strlen($data);
 		
@@ -320,6 +331,7 @@ class RarInfo
 					'size' => isset($block['unp_size']) ? $block['unp_size'] : 0,
 					'date' => !empty($block['ftime']) ? $this->dos2unixtime($block['ftime']) : 0,
 					'pass'  => (int) $block['has_password'],
+					'next_offset' => $block['next_offset'],
 				);
 			}
 		}
@@ -352,6 +364,12 @@ class RarInfo
 	protected $isAnalyzed = false;
 
 	/**
+	 * Is this a RAR file/data fragment?
+	 * @var bool
+	 */
+	protected $isFragment = false;	
+	
+	/**
 	 * The stored RAR file data.
 	 * @var string
 	 */	
@@ -374,6 +392,75 @@ class RarInfo
 	 * @var array
 	 */	
 	protected $blocks;	
+
+	/**
+	 * Searches for a valid file header, and moves the data pointer to it.
+	 *
+	 * This (slow) hack is only useful when handling RAR file fragments.
+	 *
+	 * @return  bool  false if no valid file header is found
+	 */
+	protected function findFileHeader() 
+	{
+		while ($this->offset < $this->dataSize) try {
+		
+			// Get the current block header
+			$block = array('offset' => $this->offset);
+			$block += unpack(self::FORMAT_BLOCK_HEADER, $this->read(7));
+
+			if ($block['head_type'] == self::BLOCK_FILE) {
+				
+				// Run file header CRC check
+				if ($this->checkFileCRC($block) === false) {
+				
+					// Skip to next byte to continue searching for valid header
+					$this->seek($block['offset'] + 1);
+					continue;
+				
+				} else {
+					
+					// A valid file header was found
+					$this->offset = $block['offset'];
+					return true;
+				}
+			
+			} else {
+			
+				// Skip to next byte to continue searching for valid header
+				$this->seek($block['offset'] + 1);
+			}
+			
+ 		// No more readable data, or read error
+		} catch (Exception $e) {
+			return false;
+		}
+	}
+
+	/**
+	 * Runs a File Header CRC check on a valid block.
+	 *
+	 * @param   array  a valid File Header block
+	 * @return  bool   false if CRC check fails
+	 */
+	protected function checkFileCRC($block)
+	{
+		// Get the file header CRC data
+		$this->seek($block['offset'] + 2);
+		try {
+			$data = $this->read($block['head_size'] - 2);
+			$crc = crc32($data) & 0xffff;
+			if ($crc !== $block['head_crc']) {
+				$this->error = "File Header CRC does not match: {$crc} <-> {$block['head_crc']}";
+				return false;
+			}
+		
+		// No more readable data, or read error
+		} catch (Exception $e) {
+			return false;
+		}
+
+		return true;
+	}
 	
 	/**
 	 * Parses the RAR data and stores a list of found blocks.
@@ -382,17 +469,31 @@ class RarInfo
 	 */
 	protected function analyze()
 	{
-		// Find the MARKER block
+		// Find the MARKER block, if there is one
 		$startPos = strpos($this->data, pack('H*', self::MARKER_BLOCK));
-		if ($startPos === false) {
+		if ($startPos === false && !$this->isFragment) {
+			
+			// Not a RAR fragment or valid file, so abort here
 			trigger_error('Not a valid RAR file', E_USER_WARNING);
 			$this->error = 'Could not find Marker Block, not a valid RAR file';
 			return false;
+		
+		} elseif ($startPos !== false) {
+		
+			// Add the Marker block to the list
+			$this->offset = $startPos;
+			$block = array('offset' => $startPos);
+			$block += unpack(self::FORMAT_BLOCK_HEADER, $this->read(7));
+			$this->blocks[] = $block;
+		
+		} elseif ($this->isFragment) {
+		
+			// Search for a valid file header and continue unpacking from there
+			if ($this->findFileHeader() === false) {
+				$this->error = 'Could not find a valid File Header';
+				return false;
+			}
 		}
-		$this->offset = $startPos;
-		$block = array('offset' => $startPos);
-		$block += unpack(self::FORMAT_BLOCK_HEADER, $this->read(7));
-		$this->blocks[] = $block;
 
 		// Analyze all remaining blocks
 		while ($this->offset < $this->dataSize) try {
@@ -432,7 +533,7 @@ class RarInfo
 		
 			// Block type: FILE
 			elseif ($block['head_type'] == self::BLOCK_FILE) {
-			
+				
 				// Unpack the remainder of the File block header
 				$block += unpack(self::FORMAT_FILE_HEADER, $this->read(21));
 				
@@ -441,7 +542,7 @@ class RarInfo
 				$block['file_crc'] = sprintf('%u', $block['file_crc']);
 				$block['ftime'] = sprintf('%u', $block['ftime']);
 				$block['attr'] = sprintf('%u', $block['attr']);
-				
+								
 				// Large file sizes
 				if ($block['head_flags'] & self::FILE_LARGE) {
 					$block += unpack('Vhigh_pack_size/Vhigh_unp_size', $this->read(8));
@@ -471,12 +572,15 @@ class RarInfo
 					$block['has_password'] = false;
 				}
 			}
+			
+			// Add offset info for next block (if any)
+			$block['next_offset'] = $block['offset'] + $block['head_size'] + $block['add_size'];
 
 			// Add block to the list
 			$this->blocks[] = $block;
 			
 			// Skip to the next block
-			$this->seek($block['offset'] + $block['head_size'] + $block['add_size']);
+			$this->seek($block['next_offset']);
 		
 			// Sanity check
 			if ($block['offset'] == $this->offset) {
