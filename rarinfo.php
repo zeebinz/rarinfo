@@ -355,7 +355,7 @@ class RarInfo
 	 * The maximum length of filenames (for sanity checking).
 	 * @var integer
 	 */
-	protected $maxFilenameLength = 500;
+	protected $maxFilenameLength = 256;
 	
 	/**
 	 * Have the archive contents been analyzed?
@@ -573,10 +573,7 @@ class RarInfo
 				}
 				
 				// Encrypted with password?
-				if ($block['head_flags'] & self::FILE_PASSWORD) {
-					$block['has_password'] = true;
-				} else {
-					$block['has_password'] = false;
+				$block['has_password'] = ($block['head_flags'] & self::FILE_PASSWORD);
 				}
 			}
 			
