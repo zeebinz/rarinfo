@@ -140,7 +140,7 @@ class RarInfo
 	/**
 	 * Format for unpacking the remainder of a File block header.
 	 */
-	const FORMAT_FILE_HEADER = 'Vunp_size/Chost_os/Vfile_crc/Vftime/Cunp_ver/Cmethod/vname_size/Vattr';
+	const FORMAT_FILE_HEADER = 'Vpack_size/Vunp_size/Chost_os/Vfile_crc/Vftime/Cunp_ver/Cmethod/vname_size/Vattr';
 	
 	/**
 	 * Signature for the Marker block.
@@ -502,13 +502,16 @@ class RarInfo
 			$block = array('offset' => $this->offset);
 			$block += unpack(self::FORMAT_BLOCK_HEADER, $this->read(7));
 			if (($block['head_flags'] & self::LONG_BLOCK)
-				|| ($block['head_type'] == self::BLOCK_FILE)
+				&& ($block['head_type'] != self::BLOCK_FILE)
 				) {
 				$addsize = unpack('V', $this->read(4));
 				$block['add_size'] = sprintf('%u', $addsize[1]);
 			} else {
 				$block['add_size'] = 0;
 			}
+
+			// Add offset info for next block (if any)
+			$block['next_offset'] = $block['offset'] + $block['head_size'] + $block['add_size'];
 
 			// Block type: ARCHIVE
 			if ($block['head_type'] == self::BLOCK_MAIN) {
@@ -535,9 +538,10 @@ class RarInfo
 			elseif ($block['head_type'] == self::BLOCK_FILE) {
 				
 				// Unpack the remainder of the File block header
-				$block += unpack(self::FORMAT_FILE_HEADER, $this->read(21));
+				$block += unpack(self::FORMAT_FILE_HEADER, $this->read(25));
 				
 				// Fix PHP issue with unsigned longs
+				$block['pack_size'] = sprintf('%u', $block['pack_size']);
 				$block['unp_size'] = sprintf('%u', $block['unp_size']);
 				$block['file_crc'] = sprintf('%u', $block['file_crc']);
 				$block['ftime'] = sprintf('%u', $block['ftime']);
@@ -548,9 +552,12 @@ class RarInfo
 					$block += unpack('Vhigh_pack_size/Vhigh_unp_size', $this->read(8));
 					$block['high_pack_size'] = sprintf('%u', $block['high_pack_size']);
 					$block['high_unp_size'] = sprintf('%u', $block['high_unp_size']);
-					$block['add_size'] += ($block['high_pack_size'] * 0x100000000);
+					$block['pack_size'] += ($block['high_pack_size'] * 0x100000000);
 					$block['unp_size'] += ($block['high_unp_size'] * 0x100000000);
 				}
+				
+				// Update next header block offset
+				$block['next_offset'] += $block['pack_size'];
 				
 				// Filename
 				$block['file_name'] = $this->read($block['name_size']);
@@ -573,13 +580,10 @@ class RarInfo
 				}
 			}
 			
-			// Add offset info for next block (if any)
-			$block['next_offset'] = $block['offset'] + $block['head_size'] + $block['add_size'];
-
-			// Add block to the list
+			// Add current block to the list
 			$this->blocks[] = $block;
 			
-			// Skip to the next block
+			// Skip to the next block, if any
 			$this->seek($block['next_offset']);
 		
 			// Sanity check
