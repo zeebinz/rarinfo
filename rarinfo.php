@@ -44,10 +44,11 @@
  * @author     Hecks
  * @copyright  (c) 2010-2011 Hecks
  * @license    Modified BSD
- * @version    1.7
+ * @version    1.8
  *
  * CHANGELOG:
  * ----------
+ * 1.8 Better info for multipart files, added PACK_SIZE properly
  * 1.7 Improved support for RAR file fragments
  * 1.6 Added extra error checking to read method
  * 1.5 Improved getSummary method output
@@ -574,7 +575,16 @@ class RarInfo
 				
 				// Encrypted with password?
 				$block['has_password'] = ($block['head_flags'] & self::FILE_PASSWORD);
+				
+				// Continued from previous volume?
+				if ($block['head_flags'] & self::FILE_SPLIT_BEFORE) {
+					$block['split_before'] = true;
 				}
+				
+				// Continued in next volume?
+				if ($block['head_flags'] & self::FILE_SPLIT_AFTER) {
+					$block['split_after'] = true;
+				}				
 			}
 			
 			// Add current block to the list
