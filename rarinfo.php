@@ -565,7 +565,7 @@ class RarInfo
 				
 				// Salt (optional)
 				if ($block['head_flags'] & self::FILE_SALT) {
-					$block += unpack('C8salt', $this->read(8));
+					$block['salt'] = $this->read(8);
 				}
 				
 				// Extended time fields (optional)
@@ -574,7 +574,7 @@ class RarInfo
 				}
 				
 				// Encrypted with password?
-				$block['has_password'] = ($block['head_flags'] & self::FILE_PASSWORD);
+				$block['has_password'] = (bool) ($block['head_flags'] & self::FILE_PASSWORD);
 				
 				// Continued from previous volume?
 				if ($block['head_flags'] & self::FILE_SPLIT_BEFORE) {
