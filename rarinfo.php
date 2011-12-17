@@ -48,6 +48,7 @@
  *
  * CHANGELOG:
  * ----------
+ * 1.9 Basic unicode support, fixed password & salt info
  * 1.8 Better info for multipart files, added PACK_SIZE properly
  * 1.7 Improved support for RAR file fragments
  * 1.6 Added extra error checking to read method
@@ -561,7 +562,16 @@ class RarInfo
 				$block['next_offset'] += $block['pack_size'];
 				
 				// Filename
-				$block['file_name'] = $this->read($block['name_size']);
+				if ($block['head_flags'] & self::FILE_UNICODE) {
+					$fn = explode("\x00", $this->read($block['name_size']));
+					$block['file_name'] = $fn[0];
+					$block['uc_file_name'] = $fn[1];
+					//
+					// TODO: handle unicode filename properly here
+					//
+				} else {
+					$block['file_name'] = $this->read($block['name_size']);
+				}
 				
 				// Salt (optional)
 				if ($block['head_flags'] & self::FILE_SALT) {
