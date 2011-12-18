@@ -413,7 +413,7 @@ class RarInfo
 			if ($block['head_type'] == self::BLOCK_FILE) {
 				
 				// Run file header CRC check
-				if ($this->checkFileCRC($block) === false) {
+				if ($this->checkFileHeaderCRC($block) === false) {
 				
 					// Skip to next byte to continue searching for valid header
 					$this->seek($block['offset'] + 1);
@@ -444,7 +444,7 @@ class RarInfo
 	 * @param   array  a valid File Header block
 	 * @return  bool   false if CRC check fails
 	 */
-	protected function checkFileCRC($block)
+	protected function checkFileHeaderCRC($block)
 	{
 		// Get the file header CRC data
 		$this->seek($block['offset'] + 2);
