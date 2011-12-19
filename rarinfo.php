@@ -44,10 +44,11 @@
  * @author     Hecks
  * @copyright  (c) 2010-2011 Hecks
  * @license    Modified BSD
- * @version    1.8
+ * @version    2.0
  *
  * CHANGELOG:
  * ----------
+ * 2.0 Proper unicode support with ported UnicodeFilename class
  * 1.9 Basic unicode support, fixed password & salt info
  * 1.8 Better info for multipart files, added PACK_SIZE properly
  * 1.7 Improved support for RAR file fragments
@@ -561,14 +562,23 @@ class RarInfo
 				// Update next header block offset
 				$block['next_offset'] += $block['pack_size'];
 				
-				// Filename
+				// Filename: unicode
 				if ($block['head_flags'] & self::FILE_UNICODE) {
+				
+					// Split the standard filename and unicode data from the file_name field
 					$fn = explode("\x00", $this->read($block['name_size']));
-					$block['file_name'] = $fn[0];
-					$block['uc_file_name'] = $fn[1];
-					//
-					// TODO: handle unicode filename properly here
-					//
+					
+					// Decompress the unicode filename, encode the result as UTF-8
+					$uc = new UnicodeFilename($fn[0], $fn[1]);
+					if ($ucname = $uc->decode()) {
+						$block['file_name'] = @iconv('UTF-16LE', 'UTF-8//IGNORE//TRANSLIT', $ucname);
+
+					// Fallback to the standard filename
+					} else {
+						$block['file_name'] = $fn[0];
+					}
+
+				// Filename: non-unicode
 				} else {
 					$block['file_name'] = $this->read($block['name_size']);
 				}
@@ -706,3 +716,164 @@ class RarInfo
 	}
 	
 } // End RarInfo class
+
+/**
+ * UnicodeFilename class.
+ * 
+ * This utility class handles the unicode filename decompression for RAR files. It is
+ * adapted directly from Marko Kreen's python script rarfile.py.
+ *
+ * @link https://github.com/markokr/rarfile
+ *
+ * CHANGELOG:
+ * ----------
+ * 1.0 Initial release
+ *
+ */
+class UnicodeFilename
+{	
+	/**
+	 * Initialises the class instance.
+	 *
+	 * @param   string  the standard filename
+	 * @param   string  the unicode data
+	 * @return  void
+	 */	
+	public function __construct($stdName, $encData)
+	{
+		$this->stdName = $stdName;
+		$this->encData = $encData;
+	}
+	
+	/**
+	 * Decompresses the unicode filename by processing both the standard filename
+	 * and additional unicode data, return value is encoded as UTF-16LE.
+	 *
+	 * @return  mixed  the unicode filename, or false on failure
+	 */	
+	public function decode()
+	{
+		$highByte = $this->encByte();
+		$encDataLen = strlen($this->encData);
+		$flagBits = 0;
+		
+		while ($this->encPos < $encDataLen) {
+		
+			if ($flagBits == 0) {
+				$flags = $this->encByte();
+				$flagBits = 8;
+			}
+			$flagBits -= 2;
+
+			switch (($flags >> $flagBits) & 3) {
+				case 0:
+					$this->put($this->encByte(), 0);
+					break;
+				case 1:
+					$this->put($this->encByte(), $highByte);
+					break;
+				case 2:
+					$this->put($this->encByte(), $this->encByte());
+					break;
+				default:
+					$n = $this->encByte();
+					if ($n & 0x80) {
+						$c = $this->encByte();
+						for ($i = 0; $i < (($n & 0x7f) + 2); $i++) {
+							$lowByte = ($this->stdByte() + $c) & 0xFF;
+							$this->put($lowByte, $highByte);
+						}
+					} else {
+						for ($i = 0; $i < ($n + 2); $i++) {
+							$this->put($this->stdByte(), 0);
+						}
+					}
+			}
+		}
+		
+		// Return the unicode string
+		if ($this->failed) {return false;}
+		return $this->output;
+	}
+
+	/**
+	 * The standard filename data.
+	 * @var string
+	 */
+	protected $stdName;
+	
+	/**
+	 * The unicode data used for processing.
+	 * @var string
+	 */
+	protected $encData;
+	
+	/**
+	 * Pointer for the standard filename data.
+	 * @var integer
+	 */
+	protected $pos = 0;
+
+	/**
+	 * Pointer for the unicode data.
+	 * @var integer
+	 */	
+	protected $encPos = 0;
+
+	/**
+	 * Did the decompression fail?
+	 * @var bool
+	 */
+	protected $failed = false;
+	
+	/**
+	 * Decompressed unicode filename string.
+	 * @var string
+	 */
+	protected $output;
+	
+	/**
+	 * Gets the current byte value from the unicode data and increments the 
+	 * pointer if successful.
+	 *
+	 * @return  integer  encoded byte value, or 0 on fail
+	 */	
+	protected function encByte()
+	{
+		if ($c = substr($this->encData, $this->encPos, 1)) {
+			$this->encPos++;
+			return ord($c);
+		}
+		$this->failed = true;
+		return 0;
+	}
+
+	/**
+	 * Gets the current byte value from the standard filename data.
+	 *
+	 * @return  integer  standard byte value, or placeholder on fail
+	 */		
+	protected function stdByte()
+	{
+		if ($c = substr($this->stdName, $this->pos, 1)) {
+			return ord($c);
+		}
+		$this->failed = true;
+		return ord('?');
+	}	
+
+	/**
+	 * Builds the output for the unicode filename string in 16-bit blocks (UTF-16LE).
+	 *
+	 * @param   integer  low byte value
+	 * @param   integer  high byte value
+	 * @return  void
+	 */		
+	protected function put($low, $high)
+	{
+		$this->output .= chr($low);
+		$this->output .= chr($high);
+		$this->pos++;
+	}
+	
+} // End UnicodeFilename class
