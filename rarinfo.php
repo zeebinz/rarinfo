@@ -569,7 +569,7 @@ class RarInfo
 					$fn = explode("\x00", $this->read($block['name_size']));
 					
 					// Decompress the unicode filename, encode the result as UTF-8
-					$uc = new UnicodeFilename($fn[0], $fn[1]);
+					$uc = new RarUnicodeFilename($fn[0], $fn[1]);
 					if ($ucname = $uc->decode()) {
 						$block['file_name'] = @iconv('UTF-16LE', 'UTF-8//IGNORE//TRANSLIT', $ucname);
 
@@ -718,7 +718,7 @@ class RarInfo
 } // End RarInfo class
 
 /**
- * UnicodeFilename class.
+ * RarUnicodeFilename class.
  * 
  * This utility class handles the unicode filename decompression for RAR files. It is
  * adapted directly from Marko Kreen's python script rarfile.py.
@@ -727,10 +727,11 @@ class RarInfo
  *
  * CHANGELOG:
  * ----------
+ * 1.1 Renamed class to avoid collisions
  * 1.0 Initial release
  *
  */
-class UnicodeFilename
+class RarUnicodeFilename
 {	
 	/**
 	 * Initialises the class instance.
@@ -876,4 +877,4 @@ class UnicodeFilename
 		$this->pos++;
 	}
 	
-} // End UnicodeFilename class
+} // End RarUnicodeFilename class
