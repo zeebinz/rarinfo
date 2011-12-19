@@ -44,10 +44,11 @@
  * @author     Hecks
  * @copyright  (c) 2010-2011 Hecks
  * @license    Modified BSD
- * @version    2.0
+ * @version    2.1
  *
  * CHANGELOG:
  * ----------
+ * 2.1 Better support for analyzing large files from disk via open()
  * 2.0 Proper unicode support with ported UnicodeFilename class
  * 1.9 Basic unicode support, fixed password & salt info
  * 1.8 Better info for multipart files, added PACK_SIZE properly
@@ -203,8 +204,8 @@ class RarInfo
 	public $error;
 		
 	/**
-	 * Loads data from the specified file (up to maxReadBytes) and analyses
-	 * the archive contents.
+	 * Opens a handle to the archive file, or loads data from a file fragment up to
+	 * maxReadBytes, and analyzes the archive contents.
 	 *
 	 * @param   string  path to the file
 	 * @param   bool    true if file is a RAR fragment
@@ -214,22 +215,46 @@ class RarInfo
 	{
 		$this->isFragment = $isFragment;
 		$this->reset();
-		
 		if (!($rarFile = realpath($file))) {
 			trigger_error("File does not exist ($file)", E_USER_WARNING);
 			$this->error = 'File does not exist';
 			return false;
 		}
-		$this->data = file_get_contents($rarFile, NULL, NULL, 0, $this->maxReadBytes);
-		$this->dataSize = strlen($this->data);
 		$this->rarFile = $rarFile;
+		$this->fileSize = filesize($rarFile);
+		
+		if ($isFragment) {
+			
+			// Read the fragment into memory
+			$this->data = file_get_contents($rarFile, NULL, NULL, 0, $this->maxReadBytes);
+			$this->dataSize = strlen($this->data);
+			
+		} else {
+		
+			// Open the file handle
+			$this->handle = fopen($rarFile, 'r');
+		}
 		
 		return $this->analyze();
 	}
 
 	/**
-	 * Loads data passed by reference (up to maxReadBytes) and analyses the 
+	 * Closes any open file handle.
+	 *
+	 * @return  void
+	 */	
+	public function close()
+	{
+		if (is_resource($this->handle)) {
+			fclose($this->handle);
+		}
+	}
+	
+	/**
+	 * Loads data passed by reference (up to maxReadBytes) and analyzes the 
 	 * archive contents.
+	 *
+	 * This method is recommended when dealing with RAR file fragments.
 	 *
 	 * @param   string  archive data stored in a variable
 	 * @param   bool    true if data is a RAR fragment
@@ -268,6 +293,7 @@ class RarInfo
 	{
 		$summary = array(
 			'rar_file' => $this->rarFile,
+			'file_size' => $this->fileSize,
 			'data_size' => $this->dataSize,
 			'is_volume' => (int) $this->isVolume,
 			'has_auth' => (int) $this->hasAuth,
@@ -347,9 +373,15 @@ class RarInfo
 	 * @var string
 	 */
 	protected $rarFile;
+
+	/**
+	 * File handle for the current archive.
+	 * @var resource
+	 */
+	protected $handle;
 	
 	/**
-	 * The maximum number of bytes to analyze.
+	 * The maximum number of stored data bytes to analyze.
 	 * @var integer
 	 */
 	protected $maxReadBytes = 1048576;
@@ -358,7 +390,7 @@ class RarInfo
 	 * The maximum length of filenames (for sanity checking).
 	 * @var integer
 	 */
-	protected $maxFilenameLength = 256;
+	protected $maxFilenameLength = 1024;
 	
 	/**
 	 * Have the archive contents been analyzed?
@@ -382,10 +414,16 @@ class RarInfo
 	 * The size in bytes of the currently stored data.
 	 * @var integer
 	 */	
-	protected $dataSize;
+	protected $dataSize = 0;
+	
+	/**
+	 * The size in bytes of the archive file.
+	 * @var integer
+	 */	
+	protected $fileSize = 0;	
 
 	/**
-	 * A pointer to the current position in the data.
+	 * A pointer to the current position in the data or file.
 	 * @var integer
 	 */	
 	protected $offset = 0;
@@ -394,10 +432,11 @@ class RarInfo
 	 * List of blocks found in the archive.
 	 * @var array
 	 */	
-	protected $blocks;	
-
+	protected $blocks;		
+	
 	/**
-	 * Searches for a valid file header, and moves the data pointer to it.
+	 * Searches for a valid file header in the data or file, and moves the current
+	 * pointer to its starting offset.
 	 *
 	 * This (slow) hack is only useful when handling RAR file fragments.
 	 *
@@ -405,7 +444,8 @@ class RarInfo
 	 */
 	protected function findFileHeader() 
 	{
-		while ($this->offset < $this->dataSize) try {
+		$dataSize = $this->data ? $this->dataSize : $this->fileSize;
+		while ($this->offset < $dataSize) try {
 		
 			// Get the current block header
 			$block = array('offset' => $this->offset);
@@ -440,20 +480,20 @@ class RarInfo
 	}
 
 	/**
-	 * Runs a File Header CRC check on a valid block.
+	 * Runs a File Header CRC check on a valid file block.
 	 *
-	 * @param   array  a valid File Header block
+	 * @param   array  a valid file block
 	 * @return  bool   false if CRC check fails
 	 */
 	protected function checkFileHeaderCRC($block)
 	{
 		// Get the file header CRC data
+		$startPos = $block['offset'];
 		$this->seek($block['offset'] + 2);
 		try {
 			$data = $this->read($block['head_size'] - 2);
 			$crc = crc32($data) & 0xffff;
 			if ($crc !== $block['head_crc']) {
-				$this->error = "File Header CRC does not match: {$crc} <-> {$block['head_crc']}";
 				return false;
 			}
 		
@@ -464,16 +504,36 @@ class RarInfo
 
 		return true;
 	}
-	
+
 	/**
-	 * Parses the RAR data and stores a list of found blocks.
+	 * Returns the position of the RAR Marker block in the stored data or file.
+	 *
+	 * @return  mixed  Marker Block position, or false if block is missing
+	 */	
+	protected function findMarkerBlock()
+	{
+		if ($this->data) {
+			return strpos($this->data, pack('H*', self::MARKER_BLOCK));
+		}
+		try {
+			$buff = $this->read(min($this->fileSize - 1, $this->maxReadBytes));
+			$this->rewind();
+			return strpos($buff, pack('H*', self::MARKER_BLOCK));
+			
+		} catch (Exception $e) {
+			return false;
+		}
+	}
+		
+	/**
+	 * Parses the RAR data and stores a list of valid blocks locally.
 	 *
 	 * @return  bool  false if parsing fails
 	 */
 	protected function analyze()
 	{
 		// Find the MARKER block, if there is one
-		$startPos = strpos($this->data, pack('H*', self::MARKER_BLOCK));
+		$startPos = $this->findMarkerBlock();
 		if ($startPos === false && !$this->isFragment) {
 			
 			// Not a RAR fragment or valid file, so abort here
@@ -499,7 +559,8 @@ class RarInfo
 		}
 
 		// Analyze all remaining blocks
-		while ($this->offset < $this->dataSize) try {
+		$dataSize = $this->data ? $this->dataSize : $this->fileSize;
+		while ($this->offset < $dataSize) try {
 		
 			// Get the current block header
 			$block = array('offset' => $this->offset);
@@ -628,6 +689,7 @@ class RarInfo
 
 		// End	
 		$this->isAnalyzed = true;
+		$this->close();
 		return true;
 	}
 	
@@ -642,12 +704,18 @@ class RarInfo
 	{
 		// Check that enough data is available
 		$newPos = $this->offset + $num;
-		if ($newPos > ($this->dataSize - 1)) {
-			throw new Exception('End of readable data');
+		if (($this->data && ($newPos > ($this->dataSize - 1)))
+			|| (!$this->data && ($newPos > ($this->fileSize - 1)))
+			) {
+			throw new Exception('End of readable data reached');
 		}
 		
 		// Read the requested bytes
-		$read = substr($this->data, $this->offset, $num);
+		if ($this->data) {
+			$read = substr($this->data, $this->offset, $num);
+		} else {
+			$read = fread($this->handle, $num);
+		}
 		
 		// Confirm read length
 		$rlen = strlen($read);
@@ -664,17 +732,35 @@ class RarInfo
 	}
 	
 	/**
-	 * Moves the stored data pointer to the given position.
+	 * Moves the current pointer to the given position in the stored data or file.
 	 *
 	 * @param   integer  new pointer position
 	 * @return  void
 	 */
 	protected function seek($pos)
 	{
-		if ($pos > ($this->dataSize - 1) || $pos < 0) {
-			$this->offset = ($this->dataSize - 1);
+		if ($this->data && ($pos > ($this->dataSize - 1) || $pos < 0)) {
+			$pos = $this->dataSize;
+		} elseif (!$this->data && ($pos > ($this->fileSize - 1) || $pos < 0)) {
+			$pos = $this->fileSize;
+		}
+		if (!$this->data) {
+			fseek($this->handle, $pos, 'SEEK_SET');
 		}
 		$this->offset = $pos;
+	}
+	
+	/**
+	 * Sets the file or stored data pointer to the starting position.
+	 *
+	 * @return  void
+	 */	
+	protected function rewind()
+	{
+		if (is_resource($this->handle)) {
+			rewind($this->handle);
+		}
+		$this->offset = 0;
 	}
 	
 	/**
@@ -704,6 +790,7 @@ class RarInfo
 	{
 		$this->rarFile = null;
 		$this->data = null;
+		$this->fileSize = null;
 		$this->dataSize = null;
 		$this->offset = 0;
 		$this->isAnalyzed = false;
@@ -713,8 +800,9 @@ class RarInfo
 		$this->hasRecovery = null;
 		$this->isEncrypted = null;
 		$this->blocks = null;
+		$this->close();
 	}
-	
+		
 } // End RarInfo class
 
 /**
