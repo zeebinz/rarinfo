@@ -597,7 +597,12 @@ class RarInfo
 					$this->isEncrypted = true;
 				}
 			}
-		
+
+			// Block type: ARCHIVE END
+			elseif ($block['head_type'] == self::BLOCK_ENDARC) {
+				$block['more_volumes'] = (bool) ($block['head_flags'] & self::ENDARC_NEXT_VOLUME);
+			}
+			
 			// Block type: FILE
 			elseif ($block['head_type'] == self::BLOCK_FILE) {
 				
