@@ -820,6 +820,7 @@ class RarInfo
  *
  * CHANGELOG:
  * ----------
+ * 1.2 Fixed issues with byte processing
  * 1.1 Renamed class to avoid collisions
  * 1.0 Initial release
  *
@@ -835,8 +836,8 @@ class RarUnicodeFilename
 	 */	
 	public function __construct($stdName, $encData)
 	{
-		$this->stdName = $stdName;
-		$this->encData = $encData;
+		$this->stdName = str_split($stdName);
+		$this->encData = str_split($encData);
 	}
 	
 	/**
@@ -848,11 +849,10 @@ class RarUnicodeFilename
 	public function decode()
 	{
 		$highByte = $this->encByte();
-		$encDataLen = strlen($this->encData);
+		$encDataLen = count($this->encData);
 		$flagBits = 0;
-		
+
 		while ($this->encPos < $encDataLen) {
-		
 			if ($flagBits == 0) {
 				$flags = $this->encByte();
 				$flagBits = 8;
@@ -934,12 +934,14 @@ class RarUnicodeFilename
 	 */	
 	protected function encByte()
 	{
-		if ($c = substr($this->encData, $this->encPos, 1)) {
-			$this->encPos++;
-			return ord($c);
+		if (isset($this->encData[$this->encPos])) {
+			$ret = ord($this->encData[$this->encPos]);
+		} else {
+			$this->failed = true;
+			$ret = 0;
 		}
-		$this->failed = true;
-		return 0;
+		$this->encPos++;
+		return $ret;
 	}
 
 	/**
@@ -949,12 +951,12 @@ class RarUnicodeFilename
 	 */		
 	protected function stdByte()
 	{
-		if ($c = substr($this->stdName, $this->pos, 1)) {
-			return ord($c);
+		if (isset($this->stdName[$this->pos])) {
+			return ord($this->stdName[$this->pos]);
 		}
 		$this->failed = true;
 		return ord('?');
-	}	
+	}
 
 	/**
 	 * Builds the output for the unicode filename string in 16-bit blocks (UTF-16LE).
