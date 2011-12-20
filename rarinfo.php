@@ -44,10 +44,11 @@
  * @author     Hecks
  * @copyright  (c) 2010-2011 Hecks
  * @license    Modified BSD
- * @version    2.1
+ * @version    2.2
  *
  * CHANGELOG:
  * ----------
+ * 2.2 Fixed some seeking issues, added more Archive End info
  * 2.1 Better support for analyzing large files from disk via open()
  * 2.0 Proper unicode support with ported UnicodeFilename class
  * 1.9 Basic unicode support, fixed password & salt info
@@ -67,7 +68,7 @@ class RarInfo
 	// ------ Class constants -----------------------------------------------------	
 
 	/**#@+
-	 * RAR file format values
+	 * RAR file format values (thanks to Marko Kreen)
 	 */
 	
 	// Block types
@@ -266,8 +267,8 @@ class RarInfo
 		$this->reset();
 		
 		$this->data = substr($data, 0, $this->maxReadBytes);
-		$this->dataSize = strlen($data);
-		
+		$this->dataSize = strlen($this->data);
+
 		return $this->analyze();
 	}
 
@@ -301,7 +302,7 @@ class RarInfo
 			'is_encrypted' => (int) $this->isEncrypted,
 		);
 		$fileList = $this->getFileList();
-		$summary['file_count'] = count($fileList);
+		$summary['file_count'] = $fileList ? count($fileList) : 0;
 		if ($full) {
 			$summary['file_list'] = $fileList;
 		}
@@ -463,7 +464,7 @@ class RarInfo
 				} else {
 					
 					// A valid file header was found
-					$this->offset = $block['offset'];
+					$this->seek($block['offset']);
 					return true;
 				}
 			
@@ -488,7 +489,6 @@ class RarInfo
 	protected function checkFileHeaderCRC($block)
 	{
 		// Get the file header CRC data
-		$startPos = $block['offset'];
 		$this->seek($block['offset'] + 2);
 		try {
 			$data = $this->read($block['head_size'] - 2);
@@ -501,7 +501,7 @@ class RarInfo
 		} catch (Exception $e) {
 			return false;
 		}
-
+		
 		return true;
 	}
 
@@ -544,7 +544,7 @@ class RarInfo
 		} elseif ($startPos !== false) {
 		
 			// Add the Marker block to the list
-			$this->offset = $startPos;
+			$this->seek($startPos);
 			$block = array('offset' => $startPos);
 			$block += unpack(self::FORMAT_BLOCK_HEADER, $this->read(7));
 			$this->blocks[] = $block;
@@ -827,7 +827,7 @@ class RarInfo
 class RarUnicodeFilename
 {	
 	/**
-	 * Initialises the class instance.
+	 * Initializes the class instance.
 	 *
 	 * @param   string  the standard filename
 	 * @param   string  the unicode data
@@ -840,8 +840,8 @@ class RarUnicodeFilename
 	}
 	
 	/**
-	 * Decompresses the unicode filename by processing both the standard filename
-	 * and additional unicode data, return value is encoded as UTF-16LE.
+	 * Decompresses the unicode filename by combining the standard filename with
+	 * the additional unicode data, return value is encoded as UTF-16LE.
 	 *
 	 * @return  mixed  the unicode filename, or false on failure
 	 */	
