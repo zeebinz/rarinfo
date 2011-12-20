@@ -44,10 +44,11 @@
  * @author     Hecks
  * @copyright  (c) 2010-2011 Hecks
  * @license    Modified BSD
- * @version    2.2
+ * @version    2.3
  *
  * CHANGELOG:
  * ----------
+ * 2.3 Added skipping of directory entries, unicode fixes
  * 2.2 Fixed some seeking issues, added more Archive End info
  * 2.1 Better support for analyzing large files from disk via open()
  * 2.0 Proper unicode support with ported UnicodeFilename class
@@ -345,9 +346,10 @@ class RarInfo
 	 * Parses the stored blocks and returns a list of records for each of the 
 	 * files in the archive.
 	 *
+	 * @param   bool   should directory entries be skipped?
 	 * @return  mixed  false if no file blocks available, or array of file records
 	 */
-	public function getFileList()
+	public function getFileList($skipDirs=false)
 	{
 		// Check that blocks are stored
 		if (!$this->blocks) {return false;}
@@ -356,11 +358,13 @@ class RarInfo
 		$ret = array();
 		foreach ($this->blocks AS $block) {
 			if ($block['head_type'] == self::BLOCK_FILE) {
+				if ($skipDirs && !empty($block['is_dir'])) {continue;}
 				$ret[] = array(
 					'name' => !empty($block['file_name']) ? substr($block['file_name'], 0, $this->maxFilenameLength) : 'Unknown',
 					'size' => isset($block['unp_size']) ? $block['unp_size'] : 0,
 					'date' => !empty($block['ftime']) ? $this->dos2unixtime($block['ftime']) : 0,
-					'pass'  => (int) $block['has_password'],
+					'pass' => (int) $block['has_password'],
+					'is_dir'  => !empty($block['is_dir']) ? 1 : 0,
 					'next_offset' => $block['next_offset'],
 				);
 			}
@@ -627,16 +631,22 @@ class RarInfo
 				
 				// Update next header block offset
 				$block['next_offset'] += $block['pack_size'];
+		
+				// Is this a directory entry?
+				if (($block['head_flags'] & self::FILE_DIRECTORY) == self::FILE_DIRECTORY) {
+					$block['is_dir'] = true;
+				}
 				
 				// Filename: unicode
 				if ($block['head_flags'] & self::FILE_UNICODE) {
 				
 					// Split the standard filename and unicode data from the file_name field
 					$fn = explode("\x00", $this->read($block['name_size']));
-					
+
 					// Decompress the unicode filename, encode the result as UTF-8
 					$uc = new RarUnicodeFilename($fn[0], $fn[1]);
 					if ($ucname = $uc->decode()) {
+					
 						$block['file_name'] = @iconv('UTF-16LE', 'UTF-8//IGNORE//TRANSLIT', $ucname);
 
 					// Fallback to the standard filename
