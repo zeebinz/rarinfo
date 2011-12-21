@@ -44,10 +44,11 @@
  * @author     Hecks
  * @copyright  (c) 2010-2011 Hecks
  * @license    Modified BSD
- * @version    2.3
+ * @version    2.4
  *
  * CHANGELOG:
  * ----------
+ * 2.4 Better method for unpacking unsigned longs
  * 2.3 Added skipping of directory entries, unicode fixes
  * 2.2 Fixed some seeking issues, added more Archive End info
  * 2.1 Better support for analyzing large files from disk via open()
@@ -456,7 +457,7 @@ class RarInfo
 		
 			// Get the current block header
 			$block = array('offset' => $this->offset);
-			$block += unpack(self::FORMAT_BLOCK_HEADER, $this->read(7));
+			$block += $this->unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
 
 			if ($block['head_type'] == self::BLOCK_FILE) {
 				
@@ -552,7 +553,7 @@ class RarInfo
 			// Add the Marker block to the list
 			$this->seek($startPos);
 			$block = array('offset' => $startPos);
-			$block += unpack(self::FORMAT_BLOCK_HEADER, $this->read(7));
+			$block += $this->unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
 			$this->blocks[] = $block;
 		
 		} elseif ($this->isFragment) {
@@ -570,12 +571,11 @@ class RarInfo
 		
 			// Get the current block header
 			$block = array('offset' => $this->offset);
-			$block += unpack(self::FORMAT_BLOCK_HEADER, $this->read(7));
+			$block += $this->unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
 			if (($block['head_flags'] & self::LONG_BLOCK)
 				&& ($block['head_type'] != self::BLOCK_FILE)
 				) {
-				$addsize = unpack('V', $this->read(4));
-				$block['add_size'] = sprintf('%u', $addsize[1]);
+				$block += $this->unpack('Vadd_size', $this->read(4));
 			} else {
 				$block['add_size'] = 0;
 			}
@@ -587,7 +587,7 @@ class RarInfo
 			if ($block['head_type'] == self::BLOCK_MAIN) {
 			
 				// Unpack the remainder of the Archive block header
-				$block += unpack('vreserved1/Vreserved2', $this->read(6));
+				$block += $this->unpack('vreserved1/Vreserved2', $this->read(6));
 				
 				// Parse Archive flags
 				if ($block['head_flags'] & self::MAIN_VOLUME) {
@@ -613,20 +613,11 @@ class RarInfo
 			elseif ($block['head_type'] == self::BLOCK_FILE) {
 				
 				// Unpack the remainder of the File block header
-				$block += unpack(self::FORMAT_FILE_HEADER, $this->read(25));
-				
-				// Fix PHP issue with unsigned longs
-				$block['pack_size'] = sprintf('%u', $block['pack_size']);
-				$block['unp_size'] = sprintf('%u', $block['unp_size']);
-				$block['file_crc'] = sprintf('%u', $block['file_crc']);
-				$block['ftime'] = sprintf('%u', $block['ftime']);
-				$block['attr'] = sprintf('%u', $block['attr']);
-								
+				$block += $this->unpack(self::FORMAT_FILE_HEADER, $this->read(25));
+												
 				// Large file sizes
 				if ($block['head_flags'] & self::FILE_LARGE) {
-					$block += unpack('Vhigh_pack_size/Vhigh_unp_size', $this->read(8));
-					$block['high_pack_size'] = sprintf('%u', $block['high_pack_size']);
-					$block['high_unp_size'] = sprintf('%u', $block['high_unp_size']);
+					$block += $this->unpack('Vhigh_pack_size/Vhigh_unp_size', $this->read(8));
 					$block['pack_size'] += ($block['high_pack_size'] * 0x100000000);
 					$block['unp_size'] += ($block['high_unp_size'] * 0x100000000);
 				}
@@ -648,7 +639,6 @@ class RarInfo
 					// Decompress the unicode filename, encode the result as UTF-8
 					$uc = new RarUnicodeFilename($fn[0], $fn[1]);
 					if ($ucname = $uc->decode()) {
-					
 						$block['file_name'] = @iconv('UTF-16LE', 'UTF-8//IGNORE//TRANSLIT', $ucname);
 
 					// Fallback to the standard filename
@@ -710,6 +700,35 @@ class RarInfo
 		return true;
 	}
 	
+	/**
+	 * Unpacks data from a binary string.
+	 *
+	 * This method helps in particular to fix unpacking of unsigned longs on 32-bit
+	 * systems due to PHP internal quirks.
+	 *
+	 * @param   string  format codes for unpacking
+	 * @param   string  the packed string
+	 * @param   bool    should unsigned longs be fixed?
+	 * @return  array   the unpacked data
+	 */
+	protected function unpack($format, $data, $fixLongs=true)
+	{
+		$unpacked = unpack($format, $data);
+		
+		// Fix conversion of unsigned longs on 32-bit systems
+		if ($fixLongs && PHP_INT_SIZE <= 4 && strpos($format, 'V') !== false) {
+			$codes = explode('/', $format);
+			foreach ($unpacked as $key=>$value) {
+				$code = array_shift($codes);
+				if ($code[0] == 'V' && $value < 0) {
+					$unpacked[$key] = $value + 4294967296; // converts to float
+				}
+			}
+		}
+		
+		return $unpacked;
+	}
+		
 	/**
 	 * Reads the given number of bytes from the stored data and moves the 
 	 * pointer forward.
