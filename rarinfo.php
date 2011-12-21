@@ -848,8 +848,8 @@ class RarUnicodeFilename
 	 */	
 	public function __construct($stdName, $encData)
 	{
-		$this->stdName = str_split($stdName);
-		$this->encData = str_split($encData);
+		$this->stdName = $stdName;
+		$this->encData = $encData;
 	}
 	
 	/**
@@ -861,7 +861,7 @@ class RarUnicodeFilename
 	public function decode()
 	{
 		$highByte = $this->encByte();
-		$encDataLen = count($this->encData);
+		$encDataLen = strlen($this->encData);
 		$flagBits = 0;
 
 		while ($this->encPos < $encDataLen) {
