@@ -359,14 +359,16 @@ class RarInfo
 		foreach ($this->blocks AS $block) {
 			if ($block['head_type'] == self::BLOCK_FILE) {
 				if ($skipDirs && !empty($block['is_dir'])) {continue;}
-				$ret[] = array(
+				$arr = array(
 					'name' => !empty($block['file_name']) ? substr($block['file_name'], 0, $this->maxFilenameLength) : 'Unknown',
 					'size' => isset($block['unp_size']) ? $block['unp_size'] : 0,
 					'date' => !empty($block['ftime']) ? $this->dos2unixtime($block['ftime']) : 0,
 					'pass' => (int) $block['has_password'],
-					'is_dir'  => !empty($block['is_dir']) ? 1 : 0,
 					'next_offset' => $block['next_offset'],
 				);
+				if (!empty($block['is_dir'])) {$arr['is_dir'] = 1;}
+				if (!empty($block['split_after']) || !empty($block['split_before'])) {$arr['split'] = 1;}
+				$ret[] = $arr;
 			}
 		}
 		
