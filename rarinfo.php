@@ -235,7 +235,7 @@ class RarInfo
 		} else {
 		
 			// Open the file handle
-			$this->handle = fopen($rarFile, 'r');
+			$this->handle = fopen($rarFile, 'rb');
 		}
 		
 		return $this->analyze();
