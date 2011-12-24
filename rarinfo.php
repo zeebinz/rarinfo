@@ -44,10 +44,11 @@
  * @author     Hecks
  * @copyright  (c) 2010-2011 Hecks
  * @license    Modified BSD
- * @version    2.4
+ * @version    2.5
  *
  * CHANGELOG:
  * ----------
+ * 2.5 Code cleanup & optimization, added fileCount
  * 2.4 Better method for unpacking unsigned longs
  * 2.3 Added skipping of directory entries, unicode fixes
  * 2.2 Fixed some seeking issues, added more Archive End info
@@ -161,7 +162,7 @@ class RarInfo
 	 * List of block names corresponding to block types.
 	 * @var array
 	 */	
-	static $blockNames = array(
+	protected static $blockNames = array(
 		0x72 => 'Marker',
 		0x73 => 'Archive',
 		0x74 => 'File',
@@ -173,8 +174,61 @@ class RarInfo
 		0x7a => 'Subblock',
 		0x7b => 'Archive End',
 	);
+
+	/**
+	 * Converts DOS standard timestamps to UNIX timestamps.
+	 *
+	 * @param   integer  DOS timestamp
+	 * @return  integer  UNIX timestamp
+	 */
+	public static function dos2unixtime($dostime)
+	{
+		$sec  = 2 * ($dostime & 0x1f);
+		$min  = ($dostime >> 5) & 0x3f;
+		$hrs  = ($dostime >> 11) & 0x1f;
+		$day  = ($dostime >> 16) & 0x1f;
+		$mon  = ($dostime >> 21) & 0x0f;
+		$year = (($dostime >> 25) & 0x7f) + 1980;
+		
+		return mktime($hrs, $min, $sec, $mon, $day, $year);
+	}
+	
+	/**
+	 * Unpacks data from a binary string.
+	 *
+	 * This method helps in particular to fix unpacking of unsigned longs on 32-bit
+	 * systems due to PHP internal quirks.
+	 *
+	 * @param   string  format codes for unpacking
+	 * @param   string  the packed string
+	 * @param   bool    should unsigned longs be fixed?
+	 * @return  array   the unpacked data
+	 */
+	public static function unpack($format, $data, $fixLongs=true)
+	{
+		$unpacked = unpack($format, $data);
+		
+		// Fix conversion of unsigned longs on 32-bit systems
+		if ($fixLongs && PHP_INT_SIZE <= 4 && strpos($format, 'V') !== false) {
+			$codes = explode('/', $format);
+			foreach ($unpacked as $key=>$value) {
+				$code = array_shift($codes);
+				if ($code[0] == 'V' && $value < 0) {
+					$unpacked[$key] = $value + 4294967296; // converts to float
+				}
+			}
+		}
+		
+		return $unpacked;
+	}
 	
 	// ------ Instance variables and methods ---------------------------------------
+
+	/**
+	 * Path to the RAR file (if any).
+	 * @var string
+	 */
+	public $file;
 	
 	/**
 	 * Is the volume attribute set for the archive?
@@ -225,11 +279,10 @@ class RarInfo
 		$this->isFragment = $isFragment;
 		$this->reset();
 		if (!($rarFile = realpath($file))) {
-			trigger_error("File does not exist ($file)", E_USER_WARNING);
-			$this->error = 'File does not exist';
+			$this->error = "File does not exist ($file)";
 			return false;
 		}
-		$this->rarFile = $rarFile;
+		$this->file = $rarFile;
 		$this->fileSize = filesize($rarFile);
 		
 		if ($isFragment) {
@@ -248,7 +301,7 @@ class RarInfo
 	}
 
 	/**
-	 * Closes any open file handle.
+	 * Closes any open file handle and unsets any stored data.
 	 *
 	 * @return  void
 	 */	
@@ -256,7 +309,9 @@ class RarInfo
 	{
 		if (is_resource($this->handle)) {
 			fclose($this->handle);
+			$this->handle = null;
 		}
+		$this->data = null;
 	}
 	
 	/**
@@ -296,12 +351,13 @@ class RarInfo
 	 * useful for pretty-printing.
 	 *
 	 * @param   bool   add file list to output?
+	 * @param   bool   should directory entries be skipped?
 	 * @return  array  archive summary
 	 */	
-	public function getSummary($full=false)
+	public function getSummary($full=false, $skipDirs=false)
 	{
 		$summary = array(
-			'rar_file' => $this->rarFile,
+			'rar_file' => $this->file,
 			'file_size' => $this->fileSize,
 			'data_size' => $this->dataSize,
 			'is_volume' => (int) $this->isVolume,
@@ -309,7 +365,7 @@ class RarInfo
 			'has_recovery' => (int) $this->hasRecovery,
 			'is_encrypted' => (int) $this->isEncrypted,
 		);
-		$fileList = $this->getFileList();
+		$fileList = $this->getFileList($skipDirs);
 		$summary['file_count'] = $fileList ? count($fileList) : 0;
 		if ($full) {
 			$summary['file_list'] = $fileList;
@@ -369,7 +425,7 @@ class RarInfo
 				$arr = array(
 					'name' => !empty($block['file_name']) ? substr($block['file_name'], 0, $this->maxFilenameLength) : 'Unknown',
 					'size' => isset($block['unp_size']) ? $block['unp_size'] : 0,
-					'date' => !empty($block['ftime']) ? $this->dos2unixtime($block['ftime']) : 0,
+					'date' => !empty($block['ftime']) ? self::dos2unixtime($block['ftime']) : 0,
 					'pass' => (int) $block['has_password'],
 					'next_offset' => $block['next_offset'],
 				);
@@ -381,12 +437,6 @@ class RarInfo
 		
 		return $ret;
 	}
-	
-	/**
-	 * Path to the RAR file (if any).
-	 * @var string
-	 */
-	protected $rarFile;
 
 	/**
 	 * File handle for the current archive.
@@ -405,12 +455,6 @@ class RarInfo
 	 * @var integer
 	 */
 	protected $maxFilenameLength = 1024;
-	
-	/**
-	 * Have the archive contents been analyzed?
-	 * @var bool
-	 */
-	protected $isAnalyzed = false;
 
 	/**
 	 * Is this a RAR file/data fragment?
@@ -463,7 +507,7 @@ class RarInfo
 		
 			// Get the current block header
 			$block = array('offset' => $this->offset);
-			$block += $this->unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
+			$block += self::unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
 
 			if ($block['head_type'] == self::BLOCK_FILE) {
 				
@@ -550,7 +594,6 @@ class RarInfo
 		if ($startPos === false && !$this->isFragment) {
 			
 			// Not a RAR fragment or valid file, so abort here
-			trigger_error('Not a valid RAR file', E_USER_WARNING);
 			$this->error = 'Could not find Marker Block, not a valid RAR file';
 			return false;
 		
@@ -559,7 +602,7 @@ class RarInfo
 			// Add the Marker block to the list
 			$this->seek($startPos);
 			$block = array('offset' => $startPos);
-			$block += $this->unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
+			$block += self::unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
 			$this->blocks[] = $block;
 		
 		} elseif ($this->isFragment) {
@@ -577,11 +620,11 @@ class RarInfo
 		
 			// Get the current block header
 			$block = array('offset' => $this->offset);
-			$block += $this->unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
+			$block += self::unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
 			if (($block['head_flags'] & self::LONG_BLOCK)
 				&& ($block['head_type'] != self::BLOCK_FILE)
 				) {
-				$block += $this->unpack('Vadd_size', $this->read(4));
+				$block += self::unpack('Vadd_size', $this->read(4));
 			} else {
 				$block['add_size'] = 0;
 			}
@@ -593,7 +636,7 @@ class RarInfo
 			if ($block['head_type'] == self::BLOCK_MAIN) {
 			
 				// Unpack the remainder of the Archive block header
-				$block += $this->unpack('vreserved1/Vreserved2', $this->read(6));
+				$block += self::unpack('vreserved1/Vreserved2', $this->read(6));
 				
 				// Parse Archive flags
 				if ($block['head_flags'] & self::MAIN_VOLUME) {
@@ -619,11 +662,11 @@ class RarInfo
 			elseif ($block['head_type'] == self::BLOCK_FILE) {
 				
 				// Unpack the remainder of the File block header
-				$block += $this->unpack(self::FORMAT_FILE_HEADER, $this->read(25));
+				$block += self::unpack(self::FORMAT_FILE_HEADER, $this->read(25));
 												
 				// Large file sizes
 				if ($block['head_flags'] & self::FILE_LARGE) {
-					$block += $this->unpack('Vhigh_pack_size/Vhigh_unp_size', $this->read(8));
+					$block += self::unpack('Vhigh_pack_size/Vhigh_unp_size', $this->read(8));
 					$block['pack_size'] += ($block['high_pack_size'] * 0x100000000);
 					$block['unp_size'] += ($block['high_unp_size'] * 0x100000000);
 				}
@@ -692,52 +735,22 @@ class RarInfo
 		
 			// Sanity check
 			if ($block['offset'] == $this->offset) {
-				trigger_error('Parsing failed', E_USER_WARNING);
 				$this->error = 'Parsing seems to be stuck';
+				$this->close();
 				return false;
 			}
 			
 		// No more readable data, or read error
 		} catch (Exception $e) {
-			if ($this->error) {return false;}
+			if ($this->error) {$this->close(); return false;}
 			break;
 		}
 
-		// End	
-		$this->isAnalyzed = true;
+		// Analysis was successful
 		$this->close();
 		return true;
 	}
 	
-	/**
-	 * Unpacks data from a binary string.
-	 *
-	 * This method helps in particular to fix unpacking of unsigned longs on 32-bit
-	 * systems due to PHP internal quirks.
-	 *
-	 * @param   string  format codes for unpacking
-	 * @param   string  the packed string
-	 * @param   bool    should unsigned longs be fixed?
-	 * @return  array   the unpacked data
-	 */
-	protected function unpack($format, $data, $fixLongs=true)
-	{
-		$unpacked = unpack($format, $data);
-		
-		// Fix conversion of unsigned longs on 32-bit systems
-		if ($fixLongs && PHP_INT_SIZE <= 4 && strpos($format, 'V') !== false) {
-			$codes = explode('/', $format);
-			foreach ($unpacked as $key=>$value) {
-				$code = array_shift($codes);
-				if ($code[0] == 'V' && $value < 0) {
-					$unpacked[$key] = $value + 4294967296; // converts to float
-				}
-			}
-		}
-		
-		return $unpacked;
-	}
-		
 	/**
 	 * Reads the given number of bytes from the stored data and moves the 
 	 * pointer forward.
@@ -766,7 +779,6 @@ class RarInfo
 		$rlen = strlen($read);
 		if ($rlen < $num) {
 			$this->error = "Not enough data to read ({$num} bytes requested, {$rlen} available)";
-			trigger_error($this->error, E_USER_WARNING);
 			throw new Exception('Read error');
 		}
 		
@@ -807,24 +819,6 @@ class RarInfo
 		}
 		$this->offset = 0;
 	}
-	
-	/**
-	 * Converts DOS standard timestamps to UNIX timestamps.
-	 *
-	 * @param   integer  DOS timestamp
-	 * @return  integer  UNIX timestamp
-	 */
-	protected function dos2unixtime($dostime)
-	{
-		$sec  = 2 * ($dostime & 0x1f);
-		$min  = ($dostime >> 5) & 0x3f;
-		$hrs  = ($dostime >> 11) & 0x1f;
-		$day  = ($dostime >> 16) & 0x1f;
-		$mon  = ($dostime >> 21) & 0x0f;
-		$year = (($dostime >> 25) & 0x7f) + 1980;
-		
-		return mktime($hrs, $min, $sec, $mon, $day, $year);
-	}
 
 	/**
 	 * Resets the instance variables before parsing new data.
@@ -833,20 +827,19 @@ class RarInfo
 	 */
 	protected function reset()
 	{
-		$this->rarFile = null;
-		$this->data = null;
+		$this->close();
+		$this->file = null;
 		$this->fileSize = null;
 		$this->dataSize = null;
 		$this->offset = 0;
-		$this->isAnalyzed = false;
 		$this->error = null;
 		$this->isVolume = null;
 		$this->hasAuth = null;
 		$this->hasRecovery = null;
 		$this->isEncrypted = null;
+		$this->isFragment = false;
 		$this->fileCount = 0;
 		$this->blocks = null;
-		$this->close();
 	}
 		
 } // End RarInfo class
