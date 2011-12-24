@@ -199,13 +199,19 @@ class RarInfo
 	 * @var bool
 	 */
 	public $isEncrypted;
+
+	/**
+	 * The number of file blocks in the RAR archive file/data.
+	 * @var integer
+	 */
+	public $fileCount = 0;
 	
 	/**
 	 * The last error message.
 	 * @var string
 	 */
 	public $error;
-		
+
 	/**
 	 * Opens a handle to the archive file, or loads data from a file fragment up to
 	 * maxReadBytes, and analyzes the archive contents.
@@ -672,7 +678,10 @@ class RarInfo
 				// Continued in next volume?
 				if ($block['head_flags'] & self::FILE_SPLIT_AFTER) {
 					$block['split_after'] = true;
-				}				
+				}
+
+				// Increment the file count
+				$this->fileCount++;
 			}
 			
 			// Add current block to the list
@@ -835,6 +844,7 @@ class RarInfo
 		$this->hasAuth = null;
 		$this->hasRecovery = null;
 		$this->isEncrypted = null;
+		$this->fileCount = 0;
 		$this->blocks = null;
 		$this->close();
 	}
