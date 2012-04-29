@@ -328,6 +328,10 @@ class RarInfo
 	{
 		$this->isFragment = $isFragment;
 		$this->reset();
+		if (strlen($data) == 0) {
+			$this->error = 'No data was passed, nothing to analyze';
+			return false;
+		}
 		
 		$this->data = substr($data, 0, $this->maxReadBytes);
 		$this->dataSize = strlen($this->data);
