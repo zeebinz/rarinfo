@@ -44,10 +44,11 @@
  * @author     Hecks
  * @copyright  (c) 2010-2011 Hecks
  * @license    Modified BSD
- * @version    2.5
+ * @version    2.6
  *
  * CHANGELOG:
  * ----------
+ * 2.6 Improved input error checking, fixed reset bug
  * 2.5 Code cleanup & optimization, added fileCount
  * 2.4 Better method for unpacking unsigned longs
  * 2.3 Added skipping of directory entries, unicode fixes
@@ -276,8 +277,8 @@ class RarInfo
 	 */
 	public function open($file, $isFragment=false)
 	{
-		$this->isFragment = $isFragment;
 		$this->reset();
+		$this->isFragment = $isFragment;
 		if (!($rarFile = realpath($file))) {
 			$this->error = "File does not exist ($file)";
 			return false;
@@ -326,8 +327,8 @@ class RarInfo
 	 */	
 	public function setData(&$data, $isFragment=false)
 	{
-		$this->isFragment = $isFragment;
 		$this->reset();
+		$this->isFragment = $isFragment;
 		if (strlen($data) == 0) {
 			$this->error = 'No data was passed, nothing to analyze';
 			return false;
