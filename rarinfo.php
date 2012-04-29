@@ -42,7 +42,7 @@
  * @link http://www.win-rar.com/index.php?id=24&kb_article_id=162
  *
  * @author     Hecks
- * @copyright  (c) 2010-2011 Hecks
+ * @copyright  (c) 2010-2012 Hecks
  * @license    Modified BSD
  * @version    2.6
  *
