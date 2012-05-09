@@ -44,10 +44,11 @@
  * @author     Hecks
  * @copyright  (c) 2010-2012 Hecks
  * @license    Modified BSD
- * @version    2.6
+ * @version    2.7
  *
  * CHANGELOG:
  * ----------
+ * 2.7 Fixed read & seek bugs
  * 2.6 Improved input error checking, fixed reset bug
  * 2.5 Code cleanup & optimization, added fileCount
  * 2.4 Better method for unpacking unsigned longs
@@ -767,7 +768,7 @@ class RarInfo
 	{
 		// Check that enough data is available
 		$newPos = $this->offset + $num;
-		if (($this->data && ($newPos > ($this->dataSize - 1)))
+		if (($num < 1 ) || ($this->data && ($newPos > ($this->dataSize - 1)))
 			|| (!$this->data && ($newPos > ($this->fileSize - 1)))
 			) {
 			throw new Exception('End of readable data reached');
@@ -776,13 +777,12 @@ class RarInfo
 		// Read the requested bytes
 		if ($this->data) {
 			$read = substr($this->data, $this->offset, $num);
-		} else {
+		} elseif (is_resource($this->handle)) {
 			$read = fread($this->handle, $num);
 		}
 		
 		// Confirm read length
-		$rlen = strlen($read);
-		if ($rlen < $num) {
+		if (!isset($read) || (($rlen = strlen($read)) < $num)) {
 			$this->error = "Not enough data to read ({$num} bytes requested, {$rlen} available)";
 			throw new Exception('Read error');
 		}
@@ -806,8 +806,8 @@ class RarInfo
 		} elseif (!$this->data && ($pos > ($this->fileSize - 1) || $pos < 0)) {
 			$pos = $this->fileSize;
 		}
-		if (!$this->data) {
-			fseek($this->handle, $pos, 'SEEK_SET');
+		if (!$this->data && is_resource($this->handle)) {
+			fseek($this->handle, $pos, SEEK_SET);
 		}
 		$this->offset = $pos;
 	}
