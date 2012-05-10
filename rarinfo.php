@@ -44,11 +44,12 @@
  * @author     Hecks
  * @copyright  (c) 2010-2012 Hecks
  * @license    Modified BSD
- * @version    2.7
+ * @version    2.8
  *
  * CHANGELOG:
  * ----------
- * 2.7 Fixed read & seek bugs
+ * 2.8 Added support for files larger than PHP_INT_MAX bytes
+ * 2.7 Fixed read & seek issues
  * 2.6 Improved input error checking, fixed reset bug
  * 2.5 Code cleanup & optimization, added fileCount
  * 2.4 Better method for unpacking unsigned longs
@@ -286,19 +287,19 @@ class RarInfo
 		}
 		$this->file = $rarFile;
 		$this->fileSize = filesize($rarFile);
-		
+
 		if ($isFragment) {
-			
+
 			// Read the fragment into memory
 			$this->data = file_get_contents($rarFile, NULL, NULL, 0, $this->maxReadBytes);
 			$this->dataSize = strlen($this->data);
-			
+
 		} else {
-		
+
 			// Open the file handle
 			$this->handle = fopen($rarFile, 'rb');
 		}
-		
+
 		return $this->analyze();
 	}
 
@@ -334,7 +335,7 @@ class RarInfo
 			$this->error = 'No data was passed, nothing to analyze';
 			return false;
 		}
-		
+
 		$this->data = substr($data, 0, $this->maxReadBytes);
 		$this->dataSize = strlen($this->data);
 
@@ -806,9 +807,20 @@ class RarInfo
 		} elseif (!$this->data && ($pos > ($this->fileSize - 1) || $pos < 0)) {
 			$pos = $this->fileSize;
 		}
+
 		if (!$this->data && is_resource($this->handle)) {
-			fseek($this->handle, $pos, SEEK_SET);
+			$max = PHP_INT_MAX;
+			if ($pos <= $max) {
+				fseek($this->handle, $pos, SEEK_SET);
+			} else {
+				fseek($this->handle, $max, SEEK_SET);
+				for ($rpos = ($pos - $max); $rpos > 0; $rpos -= $max) {
+					$offset = ($rpos > $max) ? $max : $rpos;
+					fseek($this->handle, $offset, SEEK_CUR);
+				}
+			}
 		}
+
 		$this->offset = $pos;
 	}
 	
