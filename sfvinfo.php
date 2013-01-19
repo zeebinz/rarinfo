@@ -31,7 +31,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.1
+ * @version    1.2
  */
 class SfvInfo extends ArchiveReader
 {
@@ -90,7 +90,7 @@ class SfvInfo extends ArchiveReader
 	protected function analyze()
 	{
 		// Get all the available data
-		$data = $this->data ? $this->data : $this->read($this->fileSize - 1);
+		$data = $this->data ? $this->data : $this->read($this->fileSize);
 
 		foreach(explode("\r\n", $data) as $line) {
 
