@@ -15,7 +15,7 @@ require_once dirname(__FILE__).'/rarinfo.php';
  *
  *   // Load the SRR file or data
  *   $srr = new SrrInfo;
- *   $srr->open('./foo.srr'); // or $rar->setData($data);
+ *   $srr->open('./foo.srr'); // or $srr->setData($data);
  *   if ($srr->error) {
  *     echo "Error: {$srr->error}\n";
  *     exit;
