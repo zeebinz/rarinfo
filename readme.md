@@ -45,6 +45,7 @@ SfvInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of SFV verification files.
 
+- 1.1 Results of getFileList() made consistent with other inspectors
 - 1.0 Initial release
 
 SrrInfo (extends RarInfo)

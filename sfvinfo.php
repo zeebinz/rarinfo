@@ -23,7 +23,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  *   // Process the file list
  *   $files = $sfv->getFileList();
  *   foreach ($files as $file) {
- *     echo $file['filename'].' - '.$file['checksum'];
+ *     echo $file['name'].' - '.$file['checksum'];
  *   }
  *
  * </code>
@@ -31,7 +31,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.0
+ * @version    1.1
  */
 class SfvInfo extends ArchiveReader
 {
@@ -67,7 +67,7 @@ class SfvInfo extends ArchiveReader
 		if ($basenames) {
 			$ret = array();
 			foreach ($this->fileList as $item) {
-				$item['filename'] = pathinfo($item['filename'], PATHINFO_BASENAME);
+				$item['name'] = pathinfo($item['name'], PATHINFO_BASENAME);
 				$ret[] = $item;
 			}
 			return $ret;
@@ -102,7 +102,7 @@ class SfvInfo extends ArchiveReader
 
 				// Store the file record locally
 				$this->fileList[] = array(
-					'filename' => $matches[1],
+					'name'     => $matches[1],
 					'checksum' => $matches[2]
 				);
 

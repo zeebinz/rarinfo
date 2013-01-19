@@ -41,7 +41,7 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 		$list = $sfv->getFileList();
 		for ($i = 0; $i < $filecount; $i++)
 		{
-			$this->assertSame($filelist[$i][0], $list[$i]['filename']);
+			$this->assertSame($filelist[$i][0], $list[$i]['name']);
 			$this->assertSame($filelist[$i][1], $list[$i]['checksum']);
 		}
 
@@ -49,7 +49,7 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 		$list = $sfv->getFileList(true);
 		for ($i = 0; $i < $filecount; $i++)
 		{
-			$this->assertSame($filelist[$i][2], $list[$i]['filename']);
+			$this->assertSame($filelist[$i][2], $list[$i]['name']);
 			$this->assertSame($filelist[$i][1], $list[$i]['checksum']);
 		}
 
