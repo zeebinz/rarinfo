@@ -1,0 +1,7 @@
+; filenames with spaces
+test 1.txt f6d8c75f
+; files in subdirectories
+subdir\test_2.txt 1e9ba708
+subdir\test 3.txt fb171746
+subdir/test 4.txt 1ddbb63a
+subdir1/subdir 2/test 5.txt 36fbdd27

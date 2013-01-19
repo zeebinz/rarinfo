@@ -1,13 +1,16 @@
 <?php
+
+require_once dirname(__FILE__).'/archivereader.php';
+
 /**
  * RarInfo class.
- * 
- * A simple class for inspecting RAR file data and listing information about 
- * the archive contents in pure PHP (no external dependencies). Data can be 
- * loaded directly from a file or from a variable passed by reference.
- * 
+ *
+ * A simple class for inspecting RAR file data and listing information about
+ * the archive contents in pure PHP (no external dependencies). Data can be
+ * streamed from a file or loaded directly from memory.
+ *
  * Example usage:
- * 
+ *
  * <code>
  *
  *   // Load the RAR file or data
@@ -34,7 +37,7 @@
  *
  * </code>
  *
- * For RAR file fragments - i.e. that may not contain a valid Marker Block - add 
+ * For RAR file fragments - i.e. that may not contain a valid Marker Block - add
  * TRUE as the second parameter for the open() or setData() methods to skip the
  * error messages and allow a forced search for valid File Header blocks.
  *
@@ -42,41 +45,18 @@
  * @link http://www.win-rar.com/index.php?id=24&kb_article_id=162
  *
  * @author     Hecks
- * @copyright  (c) 2010-2012 Hecks
+ * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    2.8
- *
- * CHANGELOG:
- * ----------
- * 2.8 Added support for files larger than PHP_INT_MAX bytes
- * 2.7 Fixed read & seek issues
- * 2.6 Improved input error checking, fixed reset bug
- * 2.5 Code cleanup & optimization, added fileCount
- * 2.4 Better method for unpacking unsigned longs
- * 2.3 Added skipping of directory entries, unicode fixes
- * 2.2 Fixed some seeking issues, added more Archive End info
- * 2.1 Better support for analyzing large files from disk via open()
- * 2.0 Proper unicode support with ported UnicodeFilename class
- * 1.9 Basic unicode support, fixed password & salt info
- * 1.8 Better info for multipart files, added PACK_SIZE properly
- * 1.7 Improved support for RAR file fragments
- * 1.6 Added extra error checking to read method
- * 1.5 Improved getSummary method output
- * 1.4 Added filename sanity checks & maxFilenameLength variable
- * 1.3 Fixed issues with some file headers lacking LONG_BLOCK flag
- * 1.2 Tweaked seeking method
- * 1.1 Fixed issues with PHP not handling unsigned longs properly (pfft)
- * 1.0 Initial release
- *
+ * @version    2.9
  */
-class RarInfo
+class RarInfo extends ArchiveReader
 {
-	// ------ Class constants -----------------------------------------------------	
+	// ------ Class constants -----------------------------------------------------
 
 	/**#@+
 	 * RAR file format values (thanks to Marko Kreen)
 	 */
-	
+
 	// Block types
 	const BLOCK_MARK          = 0x72;
 	const BLOCK_MAIN          = 0x73;
@@ -140,9 +120,19 @@ class RarInfo
 	const OS_UNIX  = 3;
 	const OS_MACOS = 4;
 	const OS_BEOS  = 5;
-	
+
+	// Subtypes for BLOCK_SUB
+	const SUBTYPE_COMMENT   = 'CMT';
+	const SUBTYPE_ACL       = 'ACL';
+	const SUBTYPE_STREAM    = 'STM';
+	const SUBTYPE_UOWNER    = 'UOW';
+	const SUBTYPE_AUTHVER   = 'AV';
+	const SUBTYPE_RECOVERY  = 'RR';
+	const SUBTYPE_OS2EA     = 'EA2';
+	const SUBTYPE_BEOSEA    = 'EABE';
+
 	/**#@-*/
-	
+
 	/**
 	 * Format for unpacking the main part of each block header.
 	 */
@@ -152,20 +142,41 @@ class RarInfo
 	 * Format for unpacking the remainder of a File block header.
 	 */
 	const FORMAT_FILE_HEADER = 'Vpack_size/Vunp_size/Chost_os/Vfile_crc/Vftime/Cunp_ver/Cmethod/vname_size/Vattr';
-	
-	/**
-	 * Signature for the Marker block.
-	 */	
-	const MARKER_BLOCK = '526172211a0700';
-	
-	
+
+
 	// ------ Class variables and methods -----------------------------------------
+
+	/**
+	 * Converts DOS standard timestamps to UNIX timestamps.
+	 *
+	 * @param   integer  $dostime  DOS timestamp
+	 * @return  integer  UNIX timestamp
+	 */
+	public static function dos2unixtime($dostime)
+	{
+		$sec  = 2 * ($dostime & 0x1f);
+		$min  = ($dostime >> 5) & 0x3f;
+		$hrs  = ($dostime >> 11) & 0x1f;
+		$day  = ($dostime >> 16) & 0x1f;
+		$mon  = ($dostime >> 21) & 0x0f;
+		$year = (($dostime >> 25) & 0x7f) + 1980;
+
+		return mktime($hrs, $min, $sec, $mon, $day, $year);
+	}
+
+	// ------ Instance variables and methods ---------------------------------------
+
+	/**
+	 * Signature for the RAR Marker block.
+	 * @bar string
+	 */
+	protected $markerBlock = '526172211a0700';
 
 	/**
 	 * List of block names corresponding to block types.
 	 * @var array
-	 */	
-	protected static $blockNames = array(
+	 */
+	protected $blockNames = array(
 		0x72 => 'Marker',
 		0x73 => 'Archive',
 		0x74 => 'File',
@@ -179,188 +190,52 @@ class RarInfo
 	);
 
 	/**
-	 * Converts DOS standard timestamps to UNIX timestamps.
-	 *
-	 * @param   integer  DOS timestamp
-	 * @return  integer  UNIX timestamp
+	 * List of the names corresponding to Subblock types (0x7a).
+	 * @var array
 	 */
-	public static function dos2unixtime($dostime)
-	{
-		$sec  = 2 * ($dostime & 0x1f);
-		$min  = ($dostime >> 5) & 0x3f;
-		$hrs  = ($dostime >> 11) & 0x1f;
-		$day  = ($dostime >> 16) & 0x1f;
-		$mon  = ($dostime >> 21) & 0x0f;
-		$year = (($dostime >> 25) & 0x7f) + 1980;
-		
-		return mktime($hrs, $min, $sec, $mon, $day, $year);
-	}
-	
-	/**
-	 * Unpacks data from a binary string.
-	 *
-	 * This method helps in particular to fix unpacking of unsigned longs on 32-bit
-	 * systems due to PHP internal quirks.
-	 *
-	 * @param   string  format codes for unpacking
-	 * @param   string  the packed string
-	 * @param   bool    should unsigned longs be fixed?
-	 * @return  array   the unpacked data
-	 */
-	public static function unpack($format, $data, $fixLongs=true)
-	{
-		$unpacked = unpack($format, $data);
-		
-		// Fix conversion of unsigned longs on 32-bit systems
-		if ($fixLongs && PHP_INT_SIZE <= 4 && strpos($format, 'V') !== false) {
-			$codes = explode('/', $format);
-			foreach ($unpacked as $key=>$value) {
-				$code = array_shift($codes);
-				if ($code[0] == 'V' && $value < 0) {
-					$unpacked[$key] = $value + 4294967296; // converts to float
-				}
-			}
-		}
-		
-		return $unpacked;
-	}
-	
-	// ------ Instance variables and methods ---------------------------------------
+	protected $subblockNames = array(
+		self::SUBTYPE_COMMENT   => 'Comment',
+		self::SUBTYPE_ACL       => 'Access Control List',
+		self::SUBTYPE_STREAM    => 'Stream',
+		self::SUBTYPE_UOWNER    => 'Owner/Group Information',
+		self::SUBTYPE_AUTHVER   => 'Authenticity Verification',
+		self::SUBTYPE_RECOVERY  => 'Recovery Record',
+		self::SUBTYPE_OS2EA     => 'OS2EA',
+		self::SUBTYPE_BEOSEA    => 'BEOSEA',
+	);
 
 	/**
-	 * Path to the RAR file (if any).
-	 * @var string
-	 */
-	public $file;
-	
-	/**
 	 * Is the volume attribute set for the archive?
-	 * @var bool
+	 * @var boolean
 	 */
 	public $isVolume;
-	
+
 	/**
 	 * Is authenticity information present?
-	 * @var bool
+	 * @var boolean
 	 */
 	public $hasAuth;
-	
+
 	/**
 	 * Is a recovery record present?
-	 * @var bool
+	 * @var boolean
 	 */
 	public $hasRecovery;
 
 	/**
 	 * Is the archive encrypted with a password?
-	 * @var bool
+	 * @var boolean
 	 */
 	public $isEncrypted;
 
 	/**
-	 * The number of file blocks in the RAR archive file/data.
-	 * @var integer
-	 */
-	public $fileCount = 0;
-	
-	/**
-	 * The last error message.
-	 * @var string
-	 */
-	public $error;
-
-	/**
-	 * Opens a handle to the archive file, or loads data from a file fragment up to
-	 * maxReadBytes, and analyzes the archive contents.
-	 *
-	 * @param   string  path to the file
-	 * @param   bool    true if file is a RAR fragment
-	 * @return  bool    false if archive analysis fails
-	 */
-	public function open($file, $isFragment=false)
-	{
-		$this->reset();
-		$this->isFragment = $isFragment;
-		if (!($rarFile = realpath($file))) {
-			$this->error = "File does not exist ($file)";
-			return false;
-		}
-		$this->file = $rarFile;
-		$this->fileSize = filesize($rarFile);
-
-		if ($isFragment) {
-
-			// Read the fragment into memory
-			$this->data = file_get_contents($rarFile, NULL, NULL, 0, $this->maxReadBytes);
-			$this->dataSize = strlen($this->data);
-
-		} else {
-
-			// Open the file handle
-			$this->handle = fopen($rarFile, 'rb');
-		}
-
-		return $this->analyze();
-	}
-
-	/**
-	 * Closes any open file handle and unsets any stored data.
-	 *
-	 * @return  void
-	 */	
-	public function close()
-	{
-		if (is_resource($this->handle)) {
-			fclose($this->handle);
-			$this->handle = null;
-		}
-		$this->data = null;
-	}
-	
-	/**
-	 * Loads data passed by reference (up to maxReadBytes) and analyzes the 
-	 * archive contents.
-	 *
-	 * This method is recommended when dealing with RAR file fragments.
-	 *
-	 * @param   string  archive data stored in a variable
-	 * @param   bool    true if data is a RAR fragment
-	 * @return  bool    false if archive analysis fails
-	 */	
-	public function setData(&$data, $isFragment=false)
-	{
-		$this->reset();
-		$this->isFragment = $isFragment;
-		if (strlen($data) == 0) {
-			$this->error = 'No data was passed, nothing to analyze';
-			return false;
-		}
-
-		$this->data = substr($data, 0, $this->maxReadBytes);
-		$this->dataSize = strlen($this->data);
-
-		return $this->analyze();
-	}
-
-	/**
-	 * Sets the maximum number of data bytes to be stored.
-	 *
-	 * @param   integer maximum bytes
-	 * @return  void
-	 */
-	public function setMaxBytes($bytes)
-	{
-		if (is_int($bytes)) {$this->maxReadBytes = $bytes;}
-	}
-	
-	/**
 	 * Convenience method that outputs a summary list of the archive information,
 	 * useful for pretty-printing.
 	 *
-	 * @param   bool   add file list to output?
-	 * @param   bool   should directory entries be skipped?
-	 * @return  array  archive summary
-	 */	
+	 * @param   boolean   $full      add file list to output?
+	 * @param   boolean   $skipDirs  should directory entries be skipped?
+	 * @return  array     archive summary
+	 */
 	public function getSummary($full=false, $skipDirs=false)
 	{
 		$summary = array(
@@ -377,7 +252,7 @@ class RarInfo
 		if ($full) {
 			$summary['file_list'] = $fileList;
 		}
-		
+
 		return $summary;
 	}
 
@@ -385,39 +260,42 @@ class RarInfo
 	 * Returns a list of the blocks found in the archive in human-readable format
 	 * (for debugging purposes only).
 	 *
-	 * @param   bool   should numeric values be displayed as hexadecimal?
-	 * @return  array  list of blocks
-	 */	
+	 * @param   boolean  $asHex  should numeric values be displayed as hexadecimal?
+	 * @return  array    list of blocks
+	 */
 	public function getBlocks($asHex=false)
 	{
 		// Check that blocks are stored
 		if (!$this->blocks) {return false;}
-		
+
 		// Build the block list
 		$ret = array();
 		foreach ($this->blocks AS $block) {
 			$b = array();
-			$b['type'] = isset(self::$blockNames[$block['head_type']]) ? self::$blockNames[$block['head_type']] : 'Unknown';
+			$b['type'] = isset($this->blockNames[$block['head_type']]) ? $this->blockNames[$block['head_type']] : 'Unknown';
+			if ($block['head_type'] == self::BLOCK_SUB && isset($this->subblockNames[$block['file_name']])) {
+				$b['sub_type'] = $this->subblockNames[$block['file_name']];
+			}
 			if ($asHex) foreach ($block AS $key=>$val) {
 				$b[$key] = is_numeric($val) ? dechex($val) : $val;
 			} else {
 				$b += $block;
 			}
-			
+
 			// Sanity check filename length
 			if (isset($b['file_name'])) {$b['file_name'] = substr($b['file_name'], 0, $this->maxFilenameLength);}
 			$ret[] = $b;
 		}
-		
+
 		return $ret;
 	}
 
 	/**
-	 * Parses the stored blocks and returns a list of records for each of the 
+	 * Parses the stored blocks and returns a list of records for each of the
 	 * files in the archive.
 	 *
-	 * @param   bool   should directory entries be skipped?
-	 * @return  mixed  false if no file blocks available, or array of file records
+	 * @param   boolean  $skipDirs  should directory entries be skipped?
+	 * @return  mixed    false if no file blocks available, or array of file records
 	 */
 	public function getFileList($skipDirs=false)
 	{
@@ -429,115 +307,88 @@ class RarInfo
 		foreach ($this->blocks AS $block) {
 			if ($block['head_type'] == self::BLOCK_FILE) {
 				if ($skipDirs && !empty($block['is_dir'])) {continue;}
-				$arr = array(
-					'name' => !empty($block['file_name']) ? substr($block['file_name'], 0, $this->maxFilenameLength) : 'Unknown',
-					'size' => isset($block['unp_size']) ? $block['unp_size'] : 0,
-					'date' => !empty($block['ftime']) ? self::dos2unixtime($block['ftime']) : 0,
-					'pass' => (int) $block['has_password'],
-					'next_offset' => $block['next_offset'],
-				);
-				if (!empty($block['is_dir'])) {$arr['is_dir'] = 1;}
-				if (!empty($block['split_after']) || !empty($block['split_before'])) {$arr['split'] = 1;}
-				$ret[] = $arr;
+				$ret[] = $this->getFileBlockSummary($block);
 			}
 		}
-		
+
 		return $ret;
 	}
 
 	/**
-	 * File handle for the current archive.
-	 * @var resource
+	 * Returns a processed summary of a RAR File block.
+	 *
+	 * @param   array  $block  a valid File block
+	 * @return  array  summary information
 	 */
-	protected $handle;
-	
-	/**
-	 * The maximum number of stored data bytes to analyze.
-	 * @var integer
-	 */
-	protected $maxReadBytes = 1048576;
+	protected function getFileBlockSummary($block)
+	{
+		$ret = array(
+			'name' => !empty($block['file_name']) ? substr($block['file_name'], 0, $this->maxFilenameLength) : 'Unknown',
+			'size' => isset($block['unp_size']) ? $block['unp_size'] : 0,
+			'date' => !empty($block['ftime']) ? self::dos2unixtime($block['ftime']) : 0,
+			'pass' => isset($block['has_password']) ? ((int) $block['has_password']) : 0,
+			'next_offset' => $block['next_offset'],
+		);
+		if (!empty($block['is_dir'])) {$ret['is_dir'] = 1;}
+		if (!empty($block['split_after']) || !empty($block['split_before'])) {$ret['split'] = 1;}
+
+		return $ret;
+	}
 
 	/**
-	 * The maximum length of filenames (for sanity checking).
-	 * @var integer
+	 * List of block types and Subblock subtypes without bodies.
+	 * @var array
 	 */
-	protected $maxFilenameLength = 1024;
+	protected $headersOnly = array(
+		'type'    => array(),
+		'subtype' => array()
+	);
 
-	/**
-	 * Is this a RAR file/data fragment?
-	 * @var bool
-	 */
-	protected $isFragment = false;	
-	
-	/**
-	 * The stored RAR file data.
-	 * @var string
-	 */	
-	protected $data;
-
-	/**
-	 * The size in bytes of the currently stored data.
-	 * @var integer
-	 */	
-	protected $dataSize = 0;
-	
-	/**
-	 * The size in bytes of the archive file.
-	 * @var integer
-	 */	
-	protected $fileSize = 0;	
-
-	/**
-	 * A pointer to the current position in the data or file.
-	 * @var integer
-	 */	
-	protected $offset = 0;
-	
 	/**
 	 * List of blocks found in the archive.
 	 * @var array
-	 */	
-	protected $blocks;		
-	
+	 */
+	protected $blocks;
+
 	/**
 	 * Searches for a valid file header in the data or file, and moves the current
 	 * pointer to its starting offset.
 	 *
 	 * This (slow) hack is only useful when handling RAR file fragments.
 	 *
-	 * @return  bool  false if no valid file header is found
+	 * @return  boolean  false if no valid File header is found
 	 */
-	protected function findFileHeader() 
+	protected function findFileHeader()
 	{
 		$dataSize = $this->data ? $this->dataSize : $this->fileSize;
 		while ($this->offset < $dataSize) try {
-		
+
 			// Get the current block header
 			$block = array('offset' => $this->offset);
 			$block += self::unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
 
 			if ($block['head_type'] == self::BLOCK_FILE) {
-				
+
 				// Run file header CRC check
 				if ($this->checkFileHeaderCRC($block) === false) {
-				
+
 					// Skip to next byte to continue searching for valid header
 					$this->seek($block['offset'] + 1);
 					continue;
-				
+
 				} else {
-					
+
 					// A valid file header was found
 					$this->seek($block['offset']);
 					return true;
 				}
-			
+
 			} else {
-			
+
 				// Skip to next byte to continue searching for valid header
 				$this->seek($block['offset'] + 1);
 			}
-			
+
  		// No more readable data, or read error
 		} catch (Exception $e) {
 			return false;
@@ -545,14 +396,14 @@ class RarInfo
 	}
 
 	/**
-	 * Runs a File Header CRC check on a valid file block.
+	 * Runs a File Header CRC check on a valid File block.
 	 *
-	 * @param   array  a valid file block
-	 * @return  bool   false if CRC check fails
+	 * @param   array    $block  a valid File block
+	 * @return  boolean  false if CRC check fails
 	 */
 	protected function checkFileHeaderCRC($block)
 	{
-		// Get the file header CRC data
+		// Get the File header CRC data
 		$this->seek($block['offset'] + 2);
 		try {
 			$data = $this->read($block['head_size'] - 2);
@@ -560,12 +411,12 @@ class RarInfo
 			if ($crc !== $block['head_crc']) {
 				return false;
 			}
-		
+
 		// No more readable data, or read error
 		} catch (Exception $e) {
 			return false;
 		}
-		
+
 		return true;
 	}
 
@@ -573,50 +424,50 @@ class RarInfo
 	 * Returns the position of the RAR Marker block in the stored data or file.
 	 *
 	 * @return  mixed  Marker Block position, or false if block is missing
-	 */	
+	 */
 	protected function findMarkerBlock()
 	{
 		if ($this->data) {
-			return strpos($this->data, pack('H*', self::MARKER_BLOCK));
+			return strpos($this->data, pack('H*', $this->markerBlock));
 		}
 		try {
-			$buff = $this->read(min($this->fileSize - 1, $this->maxReadBytes));
+			$buff = $this->read(min($this->fileSize, $this->maxReadBytes));
 			$this->rewind();
-			return strpos($buff, pack('H*', self::MARKER_BLOCK));
-			
+			return strpos($buff, pack('H*', $this->markerBlock));
+
 		} catch (Exception $e) {
 			return false;
 		}
 	}
-		
+
 	/**
 	 * Parses the RAR data and stores a list of valid blocks locally.
 	 *
-	 * @return  bool  false if parsing fails
+	 * @return  boolean  false if parsing fails
 	 */
 	protected function analyze()
 	{
 		// Find the MARKER block, if there is one
 		$startPos = $this->findMarkerBlock();
 		if ($startPos === false && !$this->isFragment) {
-			
+
 			// Not a RAR fragment or valid file, so abort here
-			$this->error = 'Could not find Marker Block, not a valid RAR file';
+			$this->error = 'Could not find Marker block, not a valid RAR file';
 			return false;
-		
+
 		} elseif ($startPos !== false) {
-		
+
 			// Add the Marker block to the list
 			$this->seek($startPos);
 			$block = array('offset' => $startPos);
 			$block += self::unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
 			$this->blocks[] = $block;
-		
+
 		} elseif ($this->isFragment) {
-		
+
 			// Search for a valid file header and continue unpacking from there
 			if ($this->findFileHeader() === false) {
-				$this->error = 'Could not find a valid File Header';
+				$this->error = 'Could not find a valid File header';
 				return false;
 			}
 		}
@@ -624,129 +475,26 @@ class RarInfo
 		// Analyze all remaining blocks
 		$dataSize = $this->data ? $this->dataSize : $this->fileSize;
 		while ($this->offset < $dataSize) try {
-		
-			// Get the current block header
-			$block = array('offset' => $this->offset);
-			$block += self::unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
-			if (($block['head_flags'] & self::LONG_BLOCK)
-				&& ($block['head_type'] != self::BLOCK_FILE)
-				) {
-				$block += self::unpack('Vadd_size', $this->read(4));
-			} else {
-				$block['add_size'] = 0;
-			}
 
-			// Add offset info for next block (if any)
-			$block['next_offset'] = $block['offset'] + $block['head_size'] + $block['add_size'];
+			// Get the next block header
+			$block = $this->getNextBlock();
 
-			// Block type: ARCHIVE
-			if ($block['head_type'] == self::BLOCK_MAIN) {
-			
-				// Unpack the remainder of the Archive block header
-				$block += self::unpack('vreserved1/Vreserved2', $this->read(6));
-				
-				// Parse Archive flags
-				if ($block['head_flags'] & self::MAIN_VOLUME) {
-					$this->isVolume = true;
-				}
-				if ($block['head_flags'] & self::MAIN_AUTH) {
-					$this->hasAuth = true;
-				}						
-				if ($block['head_flags'] & self::MAIN_RECOVERY) {
-					$this->hasRecovery = true;
-				}			
-				if ($block['head_flags'] & self::MAIN_PASSWORD) {
-					$this->isEncrypted = true;
-				}
-			}
+			// Process the current block by type
+			$this->processBlock($block);
 
-			// Block type: ARCHIVE END
-			elseif ($block['head_type'] == self::BLOCK_ENDARC) {
-				$block['more_volumes'] = (bool) ($block['head_flags'] & self::ENDARC_NEXT_VOLUME);
-			}
-			
-			// Block type: FILE
-			elseif ($block['head_type'] == self::BLOCK_FILE) {
-				
-				// Unpack the remainder of the File block header
-				$block += self::unpack(self::FORMAT_FILE_HEADER, $this->read(25));
-												
-				// Large file sizes
-				if ($block['head_flags'] & self::FILE_LARGE) {
-					$block += self::unpack('Vhigh_pack_size/Vhigh_unp_size', $this->read(8));
-					$block['pack_size'] += ($block['high_pack_size'] * 0x100000000);
-					$block['unp_size'] += ($block['high_unp_size'] * 0x100000000);
-				}
-				
-				// Update next header block offset
-				$block['next_offset'] += $block['pack_size'];
-		
-				// Is this a directory entry?
-				if (($block['head_flags'] & self::FILE_DIRECTORY) == self::FILE_DIRECTORY) {
-					$block['is_dir'] = true;
-				}
-				
-				// Filename: unicode
-				if ($block['head_flags'] & self::FILE_UNICODE) {
-				
-					// Split the standard filename and unicode data from the file_name field
-					$fn = explode("\x00", $this->read($block['name_size']));
-
-					// Decompress the unicode filename, encode the result as UTF-8
-					$uc = new RarUnicodeFilename($fn[0], $fn[1]);
-					if ($ucname = $uc->decode()) {
-						$block['file_name'] = @iconv('UTF-16LE', 'UTF-8//IGNORE//TRANSLIT', $ucname);
-
-					// Fallback to the standard filename
-					} else {
-						$block['file_name'] = $fn[0];
-					}
-
-				// Filename: non-unicode
-				} else {
-					$block['file_name'] = $this->read($block['name_size']);
-				}
-				
-				// Salt (optional)
-				if ($block['head_flags'] & self::FILE_SALT) {
-					$block['salt'] = $this->read(8);
-				}
-				
-				// Extended time fields (optional)
-				if ($block['head_flags'] & self::FILE_EXTTIME) {
-					$block['ext_time'] = true;
-				}
-				
-				// Encrypted with password?
-				$block['has_password'] = (bool) ($block['head_flags'] & self::FILE_PASSWORD);
-				
-				// Continued from previous volume?
-				if ($block['head_flags'] & self::FILE_SPLIT_BEFORE) {
-					$block['split_before'] = true;
-				}
-				
-				// Continued in next volume?
-				if ($block['head_flags'] & self::FILE_SPLIT_AFTER) {
-					$block['split_after'] = true;
-				}
-
-				// Increment the file count
-				$this->fileCount++;
-			}
-			
-			// Add current block to the list
+			// Add the current block to the list
 			$this->blocks[] = $block;
-			
+
 			// Skip to the next block, if any
 			$this->seek($block['next_offset']);
-		
+
 			// Sanity check
 			if ($block['offset'] == $this->offset) {
 				$this->error = 'Parsing seems to be stuck';
 				$this->close();
 				return false;
 			}
-			
+
 		// No more readable data, or read error
 		} catch (Exception $e) {
 			if ($this->error) {$this->close(); return false;}
@@ -757,84 +505,160 @@ class RarInfo
 		$this->close();
 		return true;
 	}
-	
+
 	/**
-	 * Reads the given number of bytes from the stored data and moves the 
-	 * pointer forward.
+	 * Reads the start of the next block header and returns the common block
+	 * info before further processing by block type.
 	 *
-	 * @param   integer  number of bytes to read
-	 * @return  string   byte string
+	 * @return  array  the next block header info
 	 */
-	protected function read($num)
+	protected function getNextBlock()
 	{
-		// Check that enough data is available
-		$newPos = $this->offset + $num;
-		if (($num < 1 ) || ($this->data && ($newPos > ($this->dataSize - 1)))
-			|| (!$this->data && ($newPos > ($this->fileSize - 1)))
+		// Start the block info
+		$block = array('offset' => $this->offset);
+
+		// Unpack the block header
+		$block += self::unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
+
+		// Check for add_size field
+		if (($block['head_flags'] & self::LONG_BLOCK)
+			&& ($block['head_type'] != self::BLOCK_FILE)
+			&& ($block['head_type'] != self::BLOCK_SUB)
 			) {
-			throw new Exception('End of readable data reached');
-		}
-		
-		// Read the requested bytes
-		if ($this->data) {
-			$read = substr($this->data, $this->offset, $num);
-		} elseif (is_resource($this->handle)) {
-			$read = fread($this->handle, $num);
-		}
-		
-		// Confirm read length
-		if (!isset($read) || (($rlen = strlen($read)) < $num)) {
-			$this->error = "Not enough data to read ({$num} bytes requested, {$rlen} available)";
-			throw new Exception('Read error');
-		}
-		
-		// Move the data pointer
-		$this->offset = $newPos;
-		
-		return $read;
-	}
-	
-	/**
-	 * Moves the current pointer to the given position in the stored data or file.
-	 *
-	 * @param   integer  new pointer position
-	 * @return  void
-	 */
-	protected function seek($pos)
-	{
-		if ($this->data && ($pos > ($this->dataSize - 1) || $pos < 0)) {
-			$pos = $this->dataSize;
-		} elseif (!$this->data && ($pos > ($this->fileSize - 1) || $pos < 0)) {
-			$pos = $this->fileSize;
+			$block += self::unpack('Vadd_size', $this->read(4));
+		} else {
+			$block['add_size'] = 0;
 		}
 
-		if (!$this->data && is_resource($this->handle)) {
-			$max = PHP_INT_MAX;
-			if ($pos <= $max) {
-				fseek($this->handle, $pos, SEEK_SET);
-			} else {
-				fseek($this->handle, $max, SEEK_SET);
-				for ($rpos = ($pos - $max); $rpos > 0; $rpos -= $max) {
-					$offset = ($rpos > $max) ? $max : $rpos;
-					fseek($this->handle, $offset, SEEK_CUR);
-				}
+		// Add offset info for next block (if any)
+		$block['next_offset'] = $block['offset'] + $block['head_size'] + $block['add_size'];
+
+		// Return the block info
+		return $block;
+	}
+
+	/**
+	 * Processes a block passed by reference based on its type.
+	 *
+	 * @param   array  $block  the block to process
+	 * @return  void
+	 */
+	protected function processBlock(&$block)
+	{
+		// Block type: ARCHIVE
+		if ($block['head_type'] == self::BLOCK_MAIN) {
+
+			// Unpack the remainder of the Archive block header
+			$block += self::unpack('vreserved1/Vreserved2', $this->read(6));
+
+			// Parse Archive flags
+			if ($block['head_flags'] & self::MAIN_VOLUME) {
+				$this->isVolume = true;
+			}
+			if ($block['head_flags'] & self::MAIN_AUTH) {
+				$this->hasAuth = true;
+			}
+			if ($block['head_flags'] & self::MAIN_RECOVERY) {
+				$this->hasRecovery = true;
+			}
+			if ($block['head_flags'] & self::MAIN_PASSWORD) {
+				$this->isEncrypted = true;
 			}
 		}
 
-		$this->offset = $pos;
-	}
-	
-	/**
-	 * Sets the file or stored data pointer to the starting position.
-	 *
-	 * @return  void
-	 */	
-	protected function rewind()
-	{
-		if (is_resource($this->handle)) {
-			rewind($this->handle);
+		// Block type: ARCHIVE END
+		elseif ($block['head_type'] == self::BLOCK_ENDARC) {
+			$block['more_volumes'] = (bool) ($block['head_flags'] & self::ENDARC_NEXT_VOLUME);
 		}
-		$this->offset = 0;
+
+		// Block type: FILE or SUBBLOCK (new style)
+		elseif ($block['head_type'] == self::BLOCK_FILE || $block['head_type'] == self::BLOCK_SUB) {
+
+			// Unpack the remainder of the block header
+			$block += self::unpack(self::FORMAT_FILE_HEADER, $this->read(25));
+
+			// Large file sizes
+			if ($block['head_flags'] & self::FILE_LARGE) {
+				$block += self::unpack('Vhigh_pack_size/Vhigh_unp_size', $this->read(8));
+				$block['pack_size'] += ($block['high_pack_size'] * 0x100000000);
+				$block['unp_size'] += ($block['high_unp_size'] * 0x100000000);
+			}
+
+			// Is this a directory entry?
+			if (($block['head_flags'] & self::FILE_DICTMASK) == self::FILE_DIRECTORY) {
+				$block['is_dir'] = true;
+			}
+
+			// Filename: unicode
+			if ($block['head_flags'] & self::FILE_UNICODE) {
+
+				// Split the standard filename and unicode data from the file_name field
+				$fn = explode("\x00", $this->read($block['name_size']));
+
+				// Decompress the unicode filename, encode the result as UTF-8
+				$uc = new RarUnicodeFilename($fn[0], $fn[1]);
+				if ($ucname = $uc->decode()) {
+					$block['file_name'] = @iconv('UTF-16LE', 'UTF-8//IGNORE//TRANSLIT', $ucname);
+
+				// Fallback to the standard filename
+				} else {
+					$block['file_name'] = $fn[0];
+				}
+
+			// Filename: non-unicode
+			} else {
+				$block['file_name'] = $this->read($block['name_size']);
+			}
+
+			// Salt (optional)
+			if ($block['head_flags'] & self::FILE_SALT) {
+				$block['salt'] = $this->read(8);
+			}
+
+			// Extended time fields (optional)
+			if ($block['head_flags'] & self::FILE_EXTTIME) {
+				$block['ext_time'] = true;
+			}
+
+			// Encrypted with password?
+			if ($block['head_flags'] & self::FILE_PASSWORD) {
+				$block['has_password'] = true;
+			}
+
+			// Continued from previous volume?
+			if ($block['head_flags'] & self::FILE_SPLIT_BEFORE) {
+				$block['split_before'] = true;
+			}
+
+			// Continued in next volume?
+			if ($block['head_flags'] & self::FILE_SPLIT_AFTER) {
+				$block['split_after'] = true;
+			}
+
+			// Increment the file count
+			if ($block['head_type'] == self::BLOCK_FILE) {
+				$this->fileCount++;
+			}
+
+			// Update next header block offset
+			if (($block['head_type'] == self::BLOCK_FILE && !in_array(self::BLOCK_FILE, $this->headersOnly['type']))
+			 || ($block['head_type'] == self::BLOCK_SUB  && !in_array($block['file_name'], $this->headersOnly['subtype']))
+			) {
+				$block['next_offset'] += $block['pack_size'];
+			}
+		}
+
+		// Parse any useful Subblock info
+		if ($block['head_type'] == self::BLOCK_SUB) {
+
+			// Authenticity verification
+			if ($block['file_name'] == self::SUBTYPE_AUTHVER) {
+				$block += self::unpack('vav_name_size', $this->read(2));
+				$block['av_file_name'] = $this->read($block['av_name_size']);
+				$block += self::unpack('vav_unknown/vav_cname_size', $this->read(4)); // guesswork
+				$block['av_created_by'] = $this->read($block['av_cname_size']);
+			}
+		}
 	}
 
 	/**
@@ -844,59 +668,48 @@ class RarInfo
 	 */
 	protected function reset()
 	{
-		$this->close();
-		$this->file = null;
-		$this->fileSize = null;
-		$this->dataSize = null;
-		$this->offset = 0;
-		$this->error = null;
+		parent::reset();
+
 		$this->isVolume = null;
 		$this->hasAuth = null;
 		$this->hasRecovery = null;
 		$this->isEncrypted = null;
-		$this->isFragment = false;
-		$this->fileCount = 0;
 		$this->blocks = null;
 	}
-		
+
 } // End RarInfo class
 
 /**
  * RarUnicodeFilename class.
- * 
+ *
  * This utility class handles the unicode filename decompression for RAR files. It is
  * adapted directly from Marko Kreen's python script rarfile.py.
  *
  * @link https://github.com/markokr/rarfile
  *
- * CHANGELOG:
- * ----------
- * 1.2 Fixed issues with byte processing
- * 1.1 Renamed class to avoid collisions
- * 1.0 Initial release
- *
+ * @version 1.2
  */
 class RarUnicodeFilename
-{	
+{
 	/**
 	 * Initializes the class instance.
 	 *
-	 * @param   string  the standard filename
-	 * @param   string  the unicode data
+	 * @param   string  $stdName  the standard filename
+	 * @param   string  $encData  the unicode data
 	 * @return  void
-	 */	
+	 */
 	public function __construct($stdName, $encData)
 	{
 		$this->stdName = $stdName;
 		$this->encData = $encData;
 	}
-	
+
 	/**
 	 * Decompresses the unicode filename by combining the standard filename with
 	 * the additional unicode data, return value is encoded as UTF-16LE.
 	 *
 	 * @return  mixed  the unicode filename, or false on failure
-	 */	
+	 */
 	public function decode()
 	{
 		$highByte = $this->encByte();
@@ -935,7 +748,7 @@ class RarUnicodeFilename
 					}
 			}
 		}
-		
+
 		// Return the unicode string
 		if ($this->failed) {return false;}
 		return $this->output;
@@ -946,13 +759,13 @@ class RarUnicodeFilename
 	 * @var string
 	 */
 	protected $stdName;
-	
+
 	/**
 	 * The unicode data used for processing.
 	 * @var string
 	 */
 	protected $encData;
-	
+
 	/**
 	 * Pointer for the standard filename data.
 	 * @var integer
@@ -962,27 +775,27 @@ class RarUnicodeFilename
 	/**
 	 * Pointer for the unicode data.
 	 * @var integer
-	 */	
+	 */
 	protected $encPos = 0;
 
 	/**
 	 * Did the decompression fail?
-	 * @var bool
+	 * @var boolean
 	 */
 	protected $failed = false;
-	
+
 	/**
 	 * Decompressed unicode filename string.
 	 * @var string
 	 */
 	protected $output;
-	
+
 	/**
-	 * Gets the current byte value from the unicode data and increments the 
+	 * Gets the current byte value from the unicode data and increments the
 	 * pointer if successful.
 	 *
 	 * @return  integer  encoded byte value, or 0 on fail
-	 */	
+	 */
 	protected function encByte()
 	{
 		if (isset($this->encData[$this->encPos])) {
@@ -999,7 +812,7 @@ class RarUnicodeFilename
 	 * Gets the current byte value from the standard filename data.
 	 *
 	 * @return  integer  standard byte value, or placeholder on fail
-	 */		
+	 */
 	protected function stdByte()
 	{
 		if (isset($this->stdName[$this->pos])) {
@@ -1012,15 +825,15 @@ class RarUnicodeFilename
 	/**
 	 * Builds the output for the unicode filename string in 16-bit blocks (UTF-16LE).
 	 *
-	 * @param   integer  low byte value
-	 * @param   integer  high byte value
+	 * @param   integer  $low   low byte value
+	 * @param   integer  $high  high byte value
 	 * @return  void
-	 */		
+	 */
 	protected function put($low, $high)
 	{
 		$this->output .= chr($low);
 		$this->output .= chr($high);
 		$this->pos++;
 	}
-	
+
 } // End RarUnicodeFilename class
