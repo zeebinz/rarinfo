@@ -12,6 +12,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 3.0 Improved speed when handling RAR file fragments
 - 2.9 Refactored quite a lot to allow easier extension
 - 2.8 Added support for files larger than PHP_INT_MAX bytes
 - 2.7 Fixed read & seek issues

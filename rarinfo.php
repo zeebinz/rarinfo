@@ -47,7 +47,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    2.9
+ * @version    3.0
  */
 class RarInfo extends ArchiveReader
 {
@@ -363,31 +363,22 @@ class RarInfo extends ArchiveReader
 		$dataSize = $this->data ? $this->dataSize : $this->fileSize;
 		while ($this->offset < $dataSize) try {
 
-			// Get the current block header
-			$block = array('offset' => $this->offset);
-			$block += self::unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
+			// Search for a BLOCK_FILE byte hint
+			if (ord($this->read(1)) != self::BLOCK_FILE || $this->offset < 3) {continue;}
+			$this->seek($this->offset - 3);
 
-			if ($block['head_type'] == self::BLOCK_FILE) {
+			// Run a File header CRC check
+			$block = $this->getNextBlock();
+			if ($this->checkFileHeaderCRC($block)) {
 
-				// Run file header CRC check
-				if ($this->checkFileHeaderCRC($block) === false) {
-
-					// Skip to next byte to continue searching for valid header
-					$this->seek($block['offset'] + 1);
-					continue;
-
-				} else {
-
-					// A valid file header was found
-					$this->seek($block['offset']);
-					return true;
-				}
-
-			} else {
-
-				// Skip to next byte to continue searching for valid header
-				$this->seek($block['offset'] + 1);
+				// A valid File header was found
+				$this->seek($block['offset']);
+				return true;
 			}
+
+			// Continue searching from the next byte
+			$this->seek($block['offset'] + 3);
+			continue;
 
  		// No more readable data, or read error
 		} catch (Exception $e) {
@@ -408,8 +399,8 @@ class RarInfo extends ArchiveReader
 		try {
 			$data = $this->read($block['head_size'] - 2);
 			$crc = crc32($data) & 0xffff;
-			if ($crc !== $block['head_crc']) {
-				return false;
+			if ($crc === $block['head_crc']) {
+				return true;
 			}
 
 		// No more readable data, or read error
@@ -417,7 +408,7 @@ class RarInfo extends ArchiveReader
 			return false;
 		}
 
-		return true;
+		return false;
 	}
 
 	/**
