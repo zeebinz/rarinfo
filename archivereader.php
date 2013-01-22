@@ -5,7 +5,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.0
+ * @version    1.1
  */
 abstract class ArchiveReader
 {
@@ -38,6 +38,20 @@ abstract class ArchiveReader
 		}
 
 		return $unpacked;
+	}
+
+	/**
+	 * Converts two longs into a float to represent a 64-bit integer.
+	 *
+	 * If more precision is needed, the bcmath functions should be used.
+	 *
+	 * @param   integer  $low   the low 32 bits
+	 * @param   integer  $high  the high 32 bits
+	 * @return  float
+	 */
+	public static function int64($low, $high)
+	{
+		return ($low + ($high * 0x100000000));
 	}
 
 	// ------ Instance variables and methods ---------------------------------------

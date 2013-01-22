@@ -6,12 +6,14 @@ ArchiveReader
 Abstract base class for the various file inspectors that defines the basic API
 and implements common methods for file/data handling.
 
+- 1.1 Added int64() method for handling 64-bit integers
 - 1.0 Initial release (derived from RarInfo v2.8, with bugfixes)
 
 RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 3.1 Now uses ArchiveReader::int64() for handling 64-bit integers
 - 3.0 Improved speed when handling RAR file fragments
 - 2.9 Refactored quite a lot to allow easier extension
 - 2.8 Added support for files larger than PHP_INT_MAX bytes

@@ -47,7 +47,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    3.0
+ * @version    3.1
  */
 class RarInfo extends ArchiveReader
 {
@@ -571,8 +571,8 @@ class RarInfo extends ArchiveReader
 			// Large file sizes
 			if ($block['head_flags'] & self::FILE_LARGE) {
 				$block += self::unpack('Vhigh_pack_size/Vhigh_unp_size', $this->read(8));
-				$block['pack_size'] += ($block['high_pack_size'] * 0x100000000);
-				$block['unp_size'] += ($block['high_unp_size'] * 0x100000000);
+				$block['pack_size'] = self::int64($block['pack_size'], $block['high_pack_size']);
+				$block['unp_size'] = self::int64($block['unp_size'], $block['high_unp_size']);
 			}
 
 			// Is this a directory entry?
