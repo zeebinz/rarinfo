@@ -117,8 +117,12 @@ class SrrInfo extends RarInfo
 			'file_size'    => $this->fileSize,
 			'data_size'    => $this->dataSize,
 			'stored_files' => $this->getStoredFiles($full),
-			'rar_files'    => $this->getFileList($skipDirs),
 		);
+		$fileList = $this->getFileList($skipDirs);
+		$summary['file_count'] = $fileList ? count($fileList) : 0;
+		if ($full) {
+			$summary['file_list'] = $fileList;
+		}
 
 		return $summary;
 	}
