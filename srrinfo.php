@@ -44,7 +44,7 @@ require_once dirname(__FILE__).'/rarinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.0
+ * @version    1.1
  */
 class SrrInfo extends RarInfo
 {
@@ -92,6 +92,12 @@ class SrrInfo extends RarInfo
 	);
 
 	/**
+	 * Details of the client that created the file/data.
+	 * @var string
+	 */
+	public $client;
+
+	/**
 	 * Initializes the class instance.
 	 *
 	 * @return  void
@@ -116,6 +122,7 @@ class SrrInfo extends RarInfo
 			'srr_file'     => $this->file,
 			'file_size'    => $this->fileSize,
 			'data_size'    => $this->dataSize,
+			'client'       => $this->client,
 			'stored_files' => $this->getStoredFiles($full),
 		);
 		$fileList = $this->getFileList($skipDirs);
@@ -204,6 +211,7 @@ class SrrInfo extends RarInfo
 		if ($block['head_flags'] & self::APP_NAME_PRESENT) {
 			$block += self::unpack('vapp_name_size', $this->read(2), false);
 			$block['app_name'] = $this->read($block['app_name_size']);
+			$this->client = $block['app_name'];
 		}
 		$this->blocks[] = $block;
 
@@ -252,6 +260,18 @@ class SrrInfo extends RarInfo
 		// Analysis was successful
 		$this->close();
 		return true;
+	}
+
+	/**
+	 * Resets the instance variables before parsing new data.
+	 *
+	 * @return  void
+	 */
+	protected function reset()
+	{
+		parent::reset();
+
+		$this->client = null;
 	}
 
 } // End SrrInfo class

@@ -58,6 +58,7 @@ Class for inspecting the contents of SRR files and reporting on the RAR files
 that they cover, as well as allowing extraction of any stored files that they
 might contain.
 
+- 1.1 Added easier reporting of client info
 - 1.0 Initial release
 
 Par2Info (extends ArchiveReader)

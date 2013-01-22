@@ -104,4 +104,14 @@ class SrrInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame('Κείμενο στην ελληνική γλώσσα.txt', $rars[2]['files'][1]['name']);
 	}
 
+	/**
+	 * We should be able to report on the client used to create the SRR file.
+	 */
+	public function testReportsClientInfo()
+	{
+		$srr = new SrrInfo;
+		$srr->open($this->fixturesDir.'/store_rr_solid_auth.part1.srr');
+		$this->assertSame('ReScene .NET 1.2', $srr->client);
+	}
+
 } // End SrrInfoTest
