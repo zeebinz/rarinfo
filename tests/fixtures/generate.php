@@ -9,6 +9,7 @@ ini_set('display_errors', 'on');
 
 makeRarFixtures();
 makeSrrFixtures();
+makePar2Fixtures();
 
 /**
  * Generates test fixtures from RAR sample files.
@@ -59,6 +60,33 @@ function makeSrrFixtures($pretend=false)
 		if (!$pretend) {
 			$data = "<?php\nreturn ".var_export($data, true).";\n";
 			file_put_contents(dirname(__FILE__)."/srr/$fname", $data);
+		}
+		echo "-- $fname\n";
+	}
+}
+
+/**
+ * Generates test fixtures from PAR2 sample files.
+ *
+ * @param   boolean  $pretend  debug output only?
+ * @return  void
+ */
+function makePar2Fixtures($pretend=false)
+{
+	require_once dirname(__FILE__).'/../../par2info.php';
+	$par2 = new Par2Info;
+	foreach(glob(dirname(__FILE__).'/par2/*.par2') as $par2file) {
+		echo "Generating for $par2file:\n";
+		$par2->open($par2file);
+		if ($par2->error) {
+			echo "Error: {$par2->error}\n";
+			continue;
+		}
+		$fname = pathinfo($par2file, PATHINFO_BASENAME).'.packets';
+		$data = $par2->getPackets(true);
+		if (!$pretend) {
+			$data = "<?php\nreturn ".var_export($data, true).";\n";
+			file_put_contents(dirname(__FILE__)."/par2/$fname", $data);
 		}
 		echo "-- $fname\n";
 	}
