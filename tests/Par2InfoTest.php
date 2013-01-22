@@ -67,7 +67,7 @@ class Par2InfoTest extends PHPUnit_Framework_TestCase
 	 * of redundancy, the same File Description packets can be repeated within a
 	 * single file, so we need to ignore duplicates.
 	 */
-	public function testReturnsListOfRecoverySetFiles()
+	public function testReturnsListOfRecoverySetFilesWithHashes()
 	{
 		$par2 = new Par2Info;
 		$par2->open($this->fixturesDir.'/testdata.vol01+02.par2');
@@ -86,6 +86,14 @@ class Par2InfoTest extends PHPUnit_Framework_TestCase
 			'hash_16K' => 'bd1a58ae2f233491c450623596c322eb',
 			'next_offset' => 5576
 		));
+
+		// Check the hash of the whole file contents
+		$data = file_get_contents($this->fixturesDir.'/test-3.data');
+		$this->assertSame($files['4631d494bc34ae0b3131291eeb3238f6']['hash'], md5($data));
+
+		// Check the hash of the first 16KB of the file
+		$data = substr($data, 0, 16384);
+		$this->assertSame($files['4631d494bc34ae0b3131291eeb3238f6']['hash_16K'], md5($data));
 	}
 
 	/**
