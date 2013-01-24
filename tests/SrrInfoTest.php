@@ -114,4 +114,15 @@ class SrrInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame('ReScene .NET 1.2', $srr->client);
 	}
 
+	/**
+	 * SRR files should not contain any file data in the File blocks, but we
+	 * should fail to read it gracefully.
+	 */
+	public function testFileDataCannotBeExtracted()
+	{
+		$srr = new SrrInfo;
+		$srr->open($this->fixturesDir.'/store_rr_solid_auth.part1.srr');
+		$this->assertSame('', $srr->getFileData('users_manual4.00.txt'));
+	}
+
 } // End SrrInfoTest

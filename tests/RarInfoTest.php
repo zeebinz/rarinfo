@@ -73,10 +73,33 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertCount(2, $files);
 		$this->assertSame('file1.txt', $files[0]['name']);
 		$this->assertSame(0, $files[0]['pass']);
+		$this->assertSame(0, $files[0]['compressed']);
+		$this->assertArrayNotHasKey('split', $files[0]);
+		$this->assertArrayNotHasKey('is_dir', $files[0]);
 
 		$this->assertSame('file2.txt', $files[1]['name']);
 		$this->assertSame(0, $files[1]['pass']);
+		$this->assertSame(1, $files[1]['compressed']);
 		$this->assertArrayHasKey('split', $files[1]);
+		$this->assertArrayNotHasKey('is_dir', $files[1]);
+	}
+
+	/**
+	 * If the archive files are packed with the Store method, we should just be able
+	 * to extract the file data and use it as is, since it isn't compressed.
+	 */
+	public function testExtractsFileDataPackedWithStoreMethod()
+	{
+		$rar = new RarInfo;
+		$rar->open($this->fixturesDir.'/store_method.rar');
+
+		$files = $rar->getFileList();
+		$this->assertCount(1, $files);
+		$this->assertSame(0, $files[0]['compressed']);
+
+		$data = $rar->getFileData($files[0]['name']);
+		$this->assertSame($files[0]['size'], strlen($data));
+		$this->assertStringStartsWith('At each generation,', $data);
 	}
 
 } // End RarInfoTest

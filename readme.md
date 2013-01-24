@@ -13,6 +13,8 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 3.2 Added RarInfo::getFileData() and RarInfo::saveFileData();
+      Data & open file handles now persist until closed manually
 - 3.1 Now uses ArchiveReader::int64() for handling 64-bit integers
 - 3.0 Improved speed when handling RAR file fragments
 - 2.9 Refactored quite a lot to allow easier extension

@@ -33,6 +33,11 @@ require_once dirname(__FILE__).'/archivereader.php';
  *     if ($file['pass'] == true) {
  *       echo "File is passworded: {$file['name']}\n";
  *     }
+ *     if ($file['compressed'] == false) {
+ *       echo "Extracting uncompressed file: {$file['name']}\n";
+ *       $rar->saveFileData($file['name'], "./destination/{$file['name']}");
+ *       // or $data = $rar->getFileData($file['name']);
+ *     }
  *   }
  *
  * </code>
@@ -47,7 +52,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    3.1
+ * @version    3.2
  */
 class RarInfo extends ArchiveReader
 {
@@ -113,6 +118,24 @@ class RarInfo extends ArchiveReader
 	const SKIP_IF_UNKNOWN     = 0x4000;
 	const LONG_BLOCK          = 0x8000;
 
+	// Subtypes for BLOCK_SUB
+	const SUBTYPE_COMMENT     = 'CMT';
+	const SUBTYPE_ACL         = 'ACL';
+	const SUBTYPE_STREAM      = 'STM';
+	const SUBTYPE_UOWNER      = 'UOW';
+	const SUBTYPE_AUTHVER     = 'AV';
+	const SUBTYPE_RECOVERY    = 'RR';
+	const SUBTYPE_OS2EA       = 'EA2';
+	const SUBTYPE_BEOSEA      = 'EABE';
+
+	// Compression methods
+	const METHOD_STORE        = 0x30;
+	const METHOD_FASTEST      = 0x31;
+	const METHOD_FAST         = 0x32;
+	const METHOD_NORMAL       = 0x33;
+	const METHOD_GOOD         = 0x34;
+	const METHOD_BEST         = 0x35;
+
 	// OS types
 	const OS_MSDOS = 0;
 	const OS_OS2   = 1;
@@ -120,16 +143,6 @@ class RarInfo extends ArchiveReader
 	const OS_UNIX  = 3;
 	const OS_MACOS = 4;
 	const OS_BEOS  = 5;
-
-	// Subtypes for BLOCK_SUB
-	const SUBTYPE_COMMENT   = 'CMT';
-	const SUBTYPE_ACL       = 'ACL';
-	const SUBTYPE_STREAM    = 'STM';
-	const SUBTYPE_UOWNER    = 'UOW';
-	const SUBTYPE_AUTHVER   = 'AV';
-	const SUBTYPE_RECOVERY  = 'RR';
-	const SUBTYPE_OS2EA     = 'EA2';
-	const SUBTYPE_BEOSEA    = 'EABE';
 
 	/**#@-*/
 
@@ -315,6 +328,64 @@ class RarInfo extends ArchiveReader
 	}
 
 	/**
+	 * Extracts the data for the given filename. Note that this is only useful
+	 * if the file has been packed with the Store method, i.e. isn't compressed.
+	 *
+	 * @param   string  $filename  name of the file to extract
+	 * @return  mixed   file data, or false if no file blocks available
+	 */
+	public function getFileData($filename)
+	{
+		// Check that blocks are stored and data source is available
+		if (!$this->blocks || ($this->data == null && $this->handle == null)) {
+			return false;
+		}
+
+		// Get the file data
+		foreach ($this->blocks AS $block) {
+			if ($block['head_type'] == self::BLOCK_FILE && $block['file_name'] == $filename) {
+				$this->seek($block['offset'] + $block['head_size']);
+				return $this->read($block['next_offset'] - $this->offset);
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Saves the data for the given filename to the given destination. Note that
+	 * this is only useful if the file has been packed with the Store method, i.e.
+	 * isn't compressed.
+	 *
+	 * @param   string   $filename     name of the file to extract
+	 * @param   string   $destination  full path of the file to create
+	 * @return  boolean  true on success
+	 */
+	public function saveFileData($filename, $destination)
+	{
+		// Check that blocks are stored and data source is available
+		if (!$this->blocks || ($this->data == null && $this->handle == null)) {
+			return false;
+		}
+
+		// Write the data to disk
+		foreach ($this->blocks AS $block) {
+			if ($block['head_type'] == self::BLOCK_FILE && $block['file_name'] == $filename) {
+				$this->seek($block['offset'] + $block['head_size']);
+				$fh = fopen($destination, 'wb');
+				$end = $this->offset + $block['pack_size'];
+				while ($this->offset < $end) {
+					fwrite($fh, $this->read(min(1024, $block['pack_size'])));
+				}
+				fclose($fh);
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Returns a processed summary of a RAR File block.
 	 *
 	 * @param   array  $block  a valid File block
@@ -327,6 +398,7 @@ class RarInfo extends ArchiveReader
 			'size' => isset($block['unp_size']) ? $block['unp_size'] : 0,
 			'date' => !empty($block['ftime']) ? self::dos2unixtime($block['ftime']) : 0,
 			'pass' => isset($block['has_password']) ? ((int) $block['has_password']) : 0,
+			'compressed' => (int) ($block['method'] != self::METHOD_STORE),
 			'next_offset' => $block['next_offset'],
 		);
 		if (!empty($block['is_dir'])) {$ret['is_dir'] = 1;}
