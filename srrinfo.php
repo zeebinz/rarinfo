@@ -44,7 +44,7 @@ require_once dirname(__FILE__).'/rarinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.1
+ * @version    1.2
  */
 class SrrInfo extends RarInfo
 {
@@ -258,7 +258,6 @@ class SrrInfo extends RarInfo
 		}
 
 		// Analysis was successful
-		$this->close();
 		return true;
 	}
 

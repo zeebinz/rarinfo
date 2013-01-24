@@ -493,7 +493,6 @@ class RarInfo extends ArchiveReader
 		}
 
 		// Analysis was successful
-		$this->close();
 		return true;
 	}
 
