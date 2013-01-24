@@ -199,7 +199,7 @@ class Par2Info extends ArchiveReader
 		// Build the file list
 		$ret = array();
 		foreach ($this->packets as $packet) {
-			if ($packet['head_type'] == self::PACKET_FILEDESC	&& !isset($ret[$packet['file_id']])) {
+			if ($packet['head_type'] == self::PACKET_FILEDESC && !isset($ret[$packet['file_id']])) {
 				$ret[$packet['file_id']] = $this->getFilePacketSummary($packet);
 			}
 		}
