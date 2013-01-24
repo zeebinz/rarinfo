@@ -28,7 +28,7 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 	 * @param  string  $filename  sample rar filename
 	 * @param  string  $blocks    expected list of valid blocks
 	 */
-	public function testReturnsListOfValidBlocks($filename, $blocks)
+	public function testStoresListOfAllValidBlocks($filename, $blocks)
 	{
 		$rar = new RarInfo;
 		$rar->open($filename, true);
@@ -64,7 +64,7 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 	 * We should be able to report on the contents of the RAR file, with some
 	 * simple processing of the raw File blocks to make them human-readable.
 	 */
-	public function testReturnsListOfArchiveFiles()
+	public function testListsAllArchiveFiles()
 	{
 		$rar = new RarInfo;
 		$rar->open($this->fixturesDir.'/multi.part1.rar');

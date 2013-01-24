@@ -28,7 +28,7 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 	 * @param  string  $filename  sample sfv filename
 	 * @param  string  $filelist  parsed file list
 	 */
-	public function testReturnsFilelistWithChecksums($filename, $filelist)
+	public function testListsAllFilesWithChecksums($filename, $filelist)
 	{
 		$source = $this->fixturesDir.DIRECTORY_SEPARATOR.$filename;
 		$filecount = count($filelist);

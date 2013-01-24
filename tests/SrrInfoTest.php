@@ -28,7 +28,7 @@ class SrrInfoTest extends PHPUnit_Framework_TestCase
 	 * @param  string  $filename  sample srr filename
 	 * @param  string  $blocks    expected list of valid blocks
 	 */
-	public function testReturnsListOfValidBlocks($filename, $blocks)
+	public function testStoresListOfAllValidBlocks($filename, $blocks)
 	{
 		$srr = new SrrInfo;
 		$srr->open($filename);
@@ -64,7 +64,7 @@ class SrrInfoTest extends PHPUnit_Framework_TestCase
 	 * SRR files can include their own Stored File blocks, and we should be able
 	 * to extract their file contents.
 	 */
-	public function testCanExtractStoredFiles()
+	public function testExtractsStoredFiles()
 	{
 		$srr = new SrrInfo;
 		$srr->open($this->fixturesDir.'/utf8_filename_added.srr');
@@ -80,7 +80,7 @@ class SrrInfoTest extends PHPUnit_Framework_TestCase
 	 * SRR files are mostly useful for providing a full list of the archive files
 	 * that they cover, including details of the archive contents.
 	 */
-	public function testReturnsListOfArchiveFiles()
+	public function testListsAllArchiveFiles()
 	{
 		$srr = new SrrInfo;
 		$srr->open($this->fixturesDir.'/store_rr_solid_auth.part1.srr');

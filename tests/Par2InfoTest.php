@@ -29,7 +29,7 @@ class Par2InfoTest extends PHPUnit_Framework_TestCase
 	 * @param  string  $filename  sample par2 filename
 	 * @param  string  $packets   expected list of valid packets
 	 */
-	public function testReturnsListOfValidPackets($filename, $packets)
+	public function testStoresListOfAllValidPackets($filename, $packets)
 	{
 		$par2 = new Par2Info;
 		$par2->open($filename);
@@ -67,7 +67,7 @@ class Par2InfoTest extends PHPUnit_Framework_TestCase
 	 * of redundancy, the same File Description packets can be repeated within a
 	 * single file, so we need to ignore duplicates.
 	 */
-	public function testReturnsListOfRecoverySetFilesWithHashes()
+	public function testListsAllRecoverySetFilesWithHashes()
 	{
 		$par2 = new Par2Info;
 		$par2->open($this->fixturesDir.'/testdata.vol01+02.par2');
