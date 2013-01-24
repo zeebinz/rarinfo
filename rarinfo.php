@@ -372,10 +372,10 @@ class RarInfo extends ArchiveReader
 		foreach ($this->blocks AS $block) {
 			if ($block['head_type'] == self::BLOCK_FILE && $block['file_name'] == $filename) {
 				$this->seek($block['offset'] + $block['head_size']);
+				$mlen = $block['next_offset'] - $this->offset;
 				$fh = fopen($destination, 'wb');
-				$end = $this->offset + $block['pack_size'];
-				while ($this->offset < $end) {
-					fwrite($fh, $this->read(min(1024, $block['pack_size'])));
+				while ($this->offset < $block['next_offset']) {
+					fwrite($fh, $this->read(min(1024, $mlen)));
 				}
 				fclose($fh);
 				return true;
