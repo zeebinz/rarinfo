@@ -5,7 +5,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.1
+ * @version    1.2
  */
 abstract class ArchiveReader
 {
@@ -52,6 +52,24 @@ abstract class ArchiveReader
 	public static function int64($low, $high)
 	{
 		return ($low + ($high * 0x100000000));
+	}
+
+	/**
+	 * Converts DOS standard timestamps to UNIX timestamps.
+	 *
+	 * @param   integer  $dostime  DOS timestamp
+	 * @return  integer  UNIX timestamp
+	 */
+	public static function dos2unixtime($dostime)
+	{
+		$sec  = 2 * ($dostime & 0x1f);
+		$min  = ($dostime >> 5) & 0x3f;
+		$hrs  = ($dostime >> 11) & 0x1f;
+		$day  = ($dostime >> 16) & 0x1f;
+		$mon  = ($dostime >> 21) & 0x0f;
+		$year = (($dostime >> 25) & 0x7f) + 1980;
+
+		return mktime($hrs, $min, $sec, $mon, $day, $year);
 	}
 
 	// ------ Instance variables and methods ---------------------------------------

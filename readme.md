@@ -6,6 +6,7 @@ ArchiveReader
 Abstract base class for the various file inspectors that defines the basic API
 and implements common methods for file/data handling.
 
+- 1.2 Added dos2unixtime() from RarInfo
 - 1.1 Added int64() method for handling 64-bit integers
 - 1.0 Initial release (derived from RarInfo v2.8, with bugfixes)
 
@@ -13,6 +14,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 3.3 Moved dos2unixtime() to ArchiveReader
 - 3.2 Added RarInfo::getFileData() and RarInfo::saveFileData();
       Data & open file handles now persist until closed manually
 - 3.1 Now uses ArchiveReader::int64() for handling 64-bit integers
