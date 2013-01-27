@@ -39,7 +39,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.0
+ * @version    1.1
  */
 class Par2Info extends ArchiveReader
 {
@@ -325,7 +325,7 @@ class Par2Info extends ArchiveReader
 		$format = (version_compare(PHP_VERSION, '5.5.0') >= 0)
 			? self::PL_FORMAT_PACKET_HEADER
 			: self::FORMAT_PACKET_HEADER;
-		$packet += self::unpack($format, $this->read(64), false);
+		$packet += self::unpack($format, $this->read(64));
 
 		// Convert packet size (64-bit integer)
 		$packet['head_length'] = self::int64($packet['head_length'], $packet['head_length_high']);
