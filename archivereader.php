@@ -5,7 +5,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.3
+ * @version    1.4
  */
 abstract class ArchiveReader
 {
@@ -96,6 +96,20 @@ abstract class ArchiveReader
 
 		// Hack for *nix
 		return trim(shell_exec('stat -c %s '.escapeshellarg($file)));
+	}
+
+	/**
+	 * Returns human-readable byte sizes as formatted strings.
+	 *
+	 * @param   integer   $bytes  the size to format
+	 * @param   integer   $round  decimal places limit
+	 * @return  string    human-readable size
+	 */
+	public static function formatSize($bytes, $round=1)
+	{
+		$suffix = array('B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB');
+		for ($i = 0; $bytes > 1024 && isset($suffix[$i+1]); $i++) {$bytes /= 1024;}
+		return round($bytes,$round).' '.$suffix[$i];
 	}
 
 	// ------ Instance variables and methods ---------------------------------------
@@ -304,7 +318,11 @@ abstract class ArchiveReader
 	/**
 	 * Moves the current pointer to the given position in the stored data or file.
 	 *
-	 * @param   integer  $pos  new pointer position
+	 * Note that seeking in files past the 2GB limit on 32-bit systems is either
+	 * impossible or needs an incredibly slow hack due to the fseek() pointer not
+	 * behaving after 2GB. The only real solution here is to use a 64-bit system.
+	 *
+	 * @param   integer/float  $pos  new pointer position
 	 * @return  void
 	 */
 	protected function seek($pos)
@@ -317,15 +335,11 @@ abstract class ArchiveReader
 
 		if (!$this->data && is_resource($this->handle)) {
 			$max = PHP_INT_MAX;
-			if ($pos <= $max) {
-				fseek($this->handle, $pos, SEEK_SET);
-			} else {
-				fseek($this->handle, $max, SEEK_SET);
-				for ($rpos = ($pos - $max); $rpos > 0; $rpos -= $max) {
-					$offset = ($rpos > $max) ? $max : $rpos;
-					fseek($this->handle, $offset, SEEK_CUR);
-				}
+			if ($pos >= $max) {
+				$this->error = 'The file is too large for this PHP version (> '.self::formatSize($max).')';
+				throw new Exception('Seek error');
 			}
+			fseek($this->handle, $pos, SEEK_SET);
 		}
 
 		$this->offset = $pos;

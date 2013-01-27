@@ -6,6 +6,7 @@ ArchiveReader
 Abstract base class for the various file inspectors that defines the basic API
 and implements common methods for file/data handling.
 
+- 1.4 Seeking in files beyond PHP_INT_MAX now throws exception
 - 1.3 Improved filesize calculation for large files
 - 1.2 Added dos2unixtime() from RarInfo
 - 1.1 Added int64() method for handling 64-bit integers
