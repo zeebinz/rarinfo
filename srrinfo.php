@@ -95,7 +95,7 @@ class SrrInfo extends RarInfo
 	 * Details of the client that created the file/data.
 	 * @var string
 	 */
-	public $client;
+	public $client = '';
 
 	/**
 	 * Initializes the class instance.
@@ -143,7 +143,7 @@ class SrrInfo extends RarInfo
 	 */
 	public function getStoredFiles($extract=true)
 	{
-		if (!$this->blocks) {return false;}
+		if (empty($this->blocks)) {return false;}
 		$ret = array();
 
 		foreach ($this->blocks as $block) {
@@ -171,7 +171,7 @@ class SrrInfo extends RarInfo
 	 */
 	public function getFileList($skipDirs=false)
 	{
-		if (!$this->blocks) {return false;}
+		if (empty($this->blocks)) {return false;}
 		$list = array();
 		$i = -1;
 
@@ -270,7 +270,7 @@ class SrrInfo extends RarInfo
 	{
 		parent::reset();
 
-		$this->client = null;
+		$this->client = '';
 	}
 
 } // End SrrInfo class

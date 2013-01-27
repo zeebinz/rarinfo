@@ -31,14 +31,14 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$archive = new TestArchiveReader;
 
 		$this->assertTrue($archive->open($this->testFile));
-		$this->assertNull($archive->error, $archive->error);
+		$this->assertEmpty($archive->error, $archive->error);
 		$this->assertSame($this->testFile, $archive->file);
 		$this->assertTrue(is_resource($archive->getHandle()));
 		$this->assertTrue($archive->analyzed);
 
 		$summary = $archive->getSummary();
 		$this->assertSame(filesize($this->testFile), $summary['fileSize']);
-		$this->assertNull($summary['dataSize']);
+		$this->assertSame(0, $summary['dataSize']);
 
 		$archive->close();
 		$this->assertFalse(is_resource($archive->getHandle()));
@@ -58,12 +58,12 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$data = file_get_contents($this->testFile);
 
 		$this->assertTrue($archive->setData($data));
-		$this->assertNull($archive->error, $archive->error);
+		$this->assertEmpty($archive->error, $archive->error);
 		$this->assertTrue($archive->analyzed);
 		
 		$summary = $archive->getSummary();
 		$this->assertSame(strlen($data), $summary['dataSize']);
-		$this->assertNull($summary['fileSize']);
+		$this->assertEmpty($summary['fileSize']);
 		$archive->close();
 
 		$this->assertFalse($archive->setData(''));

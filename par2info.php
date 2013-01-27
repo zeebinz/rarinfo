@@ -39,7 +39,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.1
+ * @version    1.2
  */
 class Par2Info extends ArchiveReader
 {
@@ -126,7 +126,7 @@ class Par2Info extends ArchiveReader
 	 * Details of the client that created the PAR2 file/data.
 	 * @var string
 	 */
-	public $client;
+	public $client = '';
 
 	/**
 	 * Convenience method that outputs a summary list of the file/data information,
@@ -163,7 +163,7 @@ class Par2Info extends ArchiveReader
 	public function getPackets($full=false)
 	{
 		// Check that packets are stored
-		if (!$this->packets) {return false;}
+		if (empty($this->packets)) {return false;}
 
 		// Build the packet list
 		$ret = array();
@@ -194,7 +194,7 @@ class Par2Info extends ArchiveReader
 	public function getFileList()
 	{
 		// Check that packets are stored
-		if (!$this->packets || !$this->fileIDs) {return false;}
+		if (empty($this->packets) || empty($this->fileIDs)) {return false;}
 
 		// Build the file list
 		$ret = array();
@@ -211,13 +211,13 @@ class Par2Info extends ArchiveReader
 	 * List of File IDs found in the file/data.
 	 * @var array
 	 */
-	protected $fileIDs;
+	protected $fileIDs = array();
 
 	/**
 	 * List of packets found in the file/data.
 	 * @var array
 	 */
-	protected $packets;
+	protected $packets = array();
 
 	/**
 	 * Returns a processed summary of a PAR2 File Description packet.
@@ -434,11 +434,11 @@ class Par2Info extends ArchiveReader
 	{
 		parent::reset();
 
-		$this->client = null;
+		$this->client = '';
 		$this->blockCount = 0;
 		$this->blockSize = 0;
-		$this->fileIDs = null;
-		$this->packets = null;
+		$this->fileIDs = array();
+		$this->packets = array();
 	}
 
 } // End Par2Info class

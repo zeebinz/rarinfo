@@ -59,7 +59,7 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame($list, $summary['file_list']);
 		$this->assertSame($filecount, $summary['file_count']);
 		$this->assertSame(filesize($source), $summary['file_size']);
-		$this->assertNull($summary['data_size']);
+		$this->assertEmpty($summary['data_size']);
 
 		// The same results should be returned from passing data by reference
 		$sfv = new SfvInfo;
@@ -68,10 +68,10 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame($filecount, $sfv->fileCount);
 
 		$summary = $sfv->getSummary(true);
-		$this->assertNull($summary['sfv_file']);
+		$this->assertEmpty($summary['sfv_file']);
 		$this->assertSame($list, $summary['file_list']);
 		$this->assertSame($filecount, $summary['file_count']);
-		$this->assertNull($summary['file_size']);
+		$this->assertEmpty($summary['file_size']);
 		$this->assertSame(filesize($source), $summary['data_size']);
 	}
 

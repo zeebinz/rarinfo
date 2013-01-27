@@ -33,7 +33,7 @@ class ZipInfoTest extends PHPUnit_Framework_TestCase
 		$zip = new ZipInfo;
 		$zip->open($filename, true);
 
-		$this->assertNull($zip->error, $zip->error);
+		$this->assertEmpty($zip->error, $zip->error);
 		$recordList = $zip->getRecords();
 		$this->assertEquals(count($records), count($recordList));
 		$this->assertEquals($records, $recordList);

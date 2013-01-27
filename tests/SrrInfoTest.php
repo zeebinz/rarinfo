@@ -33,7 +33,7 @@ class SrrInfoTest extends PHPUnit_Framework_TestCase
 		$srr = new SrrInfo;
 		$srr->open($filename);
 
-		$this->assertNull($srr->error, $srr->error);
+		$this->assertEmpty($srr->error, $srr->error);
 		$blockList = $srr->getBlocks();
 		$this->assertEquals(count($blocks), count($blockList));
 		$this->assertEquals($blocks, $blockList);

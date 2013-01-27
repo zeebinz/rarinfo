@@ -6,6 +6,7 @@ ArchiveReader
 Abstract base class for the various file inspectors that defines the basic API
 and implements common methods for file/data handling.
 
+- 1.6 Improved property initialization
 - 1.5 Improved method for unpacking unsigned longs
 - 1.4 Seeking in files beyond PHP_INT_MAX now throws exception
 - 1.3 Improved filesize calculation for large files
@@ -17,6 +18,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 3.4 Improved property initialization
 - 3.3 Moved dos2unixtime() to ArchiveReader
 - 3.2 Added RarInfo::getFileData() and RarInfo::saveFileData();
       Data & open file handles now persist until closed manually
@@ -65,6 +67,7 @@ Class for inspecting the contents of SRR files and reporting on the RAR files
 that they cover, as well as allowing extraction of any stored files that they
 might contain.
 
+- 1.3 Improved property initialization
 - 1.2 Data & open file handles now persist until closed manually
 - 1.1 Added easier reporting of client info
 - 1.0 Initial release
@@ -74,6 +77,7 @@ Par2Info (extends ArchiveReader)
 Class for inspecting the contents of PAR2 parity files and reporting on the
 archives that they cover.
 
+- 1.2 Improved property initialization
 - 1.1 Fixed unpacking of unsigned longs
 - 1.0 Initial release
 
@@ -81,6 +85,7 @@ ZipInfo (extends ArchiveReader)
 --------------------------------
 Class for inspecting the contents of ZIP archives.
 
+- 1.2 Improved property initialization
 - 1.1 Fixed filecount when CDR is missing
 - 1.0 Initial release
 

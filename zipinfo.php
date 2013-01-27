@@ -51,7 +51,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.1
+ * @version    1.2
  */
 class ZipInfo extends ArchiveReader
 {
@@ -215,7 +215,7 @@ class ZipInfo extends ArchiveReader
 	 * Is the archive Central Directory encrypted?
 	 * @var boolean
 	 */
-	public $isEncrypted;
+	public $isEncrypted = false;
 
 	/**
 	 * Convenience method that outputs a summary list of the file/data information,
@@ -250,7 +250,7 @@ class ZipInfo extends ArchiveReader
 	public function getRecords()
 	{
 		// Check that records are stored
-		if (!$this->records) {return false;}
+		if (empty($this->records)) {return false;}
 
 		// Build the record list
 		$ret = array();
@@ -280,7 +280,7 @@ class ZipInfo extends ArchiveReader
 	public function getFileList($skipDirs=false, $central=false)
 	{
 		// Check that records are stored
-		if (!$this->records) {return false;}
+		if (empty($this->records)) {return false;}
 
 		// Build the file list
 		$ret = array();
@@ -306,7 +306,7 @@ class ZipInfo extends ArchiveReader
 	public function getFileData($filename)
 	{
 		// Check that records are stored and data source is available
-		if (!$this->records || ($this->data == null && $this->handle == null)) {
+		if (empty($this->records) || ($this->data == null && $this->handle == null)) {
 			return false;
 		}
 
@@ -332,7 +332,7 @@ class ZipInfo extends ArchiveReader
 	public function saveFileData($filename, $destination)
 	{
 		// Check that records are stored and data source is available
-		if (!$this->records || ($this->data == null && $this->handle == null)) {
+		if (empty($this->records) || ($this->data == null && $this->handle == null)) {
 			return false;
 		}
 
@@ -357,7 +357,7 @@ class ZipInfo extends ArchiveReader
 	 * List of records found in the file/data.
 	 * @var array
 	 */
-	protected $records;
+	protected $records = array();
 
 	/**
 	 * Returns a processed summary of a Local or Central File record.
@@ -658,8 +658,8 @@ class ZipInfo extends ArchiveReader
 	{
 		parent::reset();
 
-		$this->records = null;
-		$this->isEncrypted = null;
+		$this->records = array();
+		$this->isEncrypted = false;
 	}
 
 } // End ZipInfo class

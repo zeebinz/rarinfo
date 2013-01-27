@@ -34,7 +34,7 @@ class Par2InfoTest extends PHPUnit_Framework_TestCase
 		$par2 = new Par2Info;
 		$par2->open($filename);
 
-		$this->assertNull($par2->error, $par2->error);
+		$this->assertEmpty($par2->error, $par2->error);
 		$packetList = $par2->getPackets(true);
 		$this->assertEquals(count($packets), count($packetList));
 		$this->assertEquals($packets, $packetList);
@@ -71,7 +71,7 @@ class Par2InfoTest extends PHPUnit_Framework_TestCase
 	{
 		$par2 = new Par2Info;
 		$par2->open($this->fixturesDir.'/testdata.vol01+02.par2');
-		$this->assertNull($par2->error, $par2->error);
+		$this->assertEmpty($par2->error, $par2->error);
 
 		$files = $par2->getFileList();
 		$this->assertEquals(2, $par2->blockCount);

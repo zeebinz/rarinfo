@@ -33,7 +33,7 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 		$rar = new RarInfo;
 		$rar->open($filename, true);
 
-		$this->assertNull($rar->error, $rar->error);
+		$this->assertEmpty($rar->error, $rar->error);
 		$blockList = $rar->getBlocks();
 		$this->assertEquals(count($blocks), count($blockList));
 		$this->assertEquals($blocks, $blockList);

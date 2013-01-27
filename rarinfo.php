@@ -52,7 +52,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    3.3
+ * @version    3.4
  */
 class RarInfo extends ArchiveReader
 {
@@ -201,25 +201,25 @@ class RarInfo extends ArchiveReader
 	 * Is the volume attribute set for the archive?
 	 * @var boolean
 	 */
-	public $isVolume;
+	public $isVolume = false;
 
 	/**
 	 * Is authenticity information present?
 	 * @var boolean
 	 */
-	public $hasAuth;
+	public $hasAuth = false;
 
 	/**
 	 * Is a recovery record present?
 	 * @var boolean
 	 */
-	public $hasRecovery;
+	public $hasRecovery = false;
 
 	/**
 	 * Is the archive encrypted with a password?
 	 * @var boolean
 	 */
-	public $isEncrypted;
+	public $isEncrypted = false;
 
 	/**
 	 * Convenience method that outputs a summary list of the archive information,
@@ -259,7 +259,7 @@ class RarInfo extends ArchiveReader
 	public function getBlocks($asHex=false)
 	{
 		// Check that blocks are stored
-		if (!$this->blocks) {return false;}
+		if (empty($this->blocks)) {return false;}
 
 		// Build the block list
 		$ret = array();
@@ -293,7 +293,7 @@ class RarInfo extends ArchiveReader
 	public function getFileList($skipDirs=false)
 	{
 		// Check that blocks are stored
-		if (!$this->blocks) {return false;}
+		if (empty($this->blocks)) {return false;}
 
 		// Build the file list
 		$ret = array();
@@ -317,7 +317,7 @@ class RarInfo extends ArchiveReader
 	public function getFileData($filename)
 	{
 		// Check that blocks are stored and data source is available
-		if (!$this->blocks || ($this->data == null && $this->handle == null)) {
+		if (empty($this->blocks) || ($this->data == null && $this->handle == null)) {
 			return false;
 		}
 
@@ -344,7 +344,7 @@ class RarInfo extends ArchiveReader
 	public function saveFileData($filename, $destination)
 	{
 		// Check that blocks are stored and data source is available
-		if (!$this->blocks || ($this->data == null && $this->handle == null)) {
+		if (empty($this->blocks) || ($this->data == null && $this->handle == null)) {
 			return false;
 		}
 
@@ -400,7 +400,7 @@ class RarInfo extends ArchiveReader
 	 * List of blocks found in the archive.
 	 * @var array
 	 */
-	protected $blocks;
+	protected $blocks = array();
 
 	/**
 	 * Searches for a valid file header in the data or file, and moves the current
@@ -712,11 +712,11 @@ class RarInfo extends ArchiveReader
 	{
 		parent::reset();
 
-		$this->isVolume = null;
-		$this->hasAuth = null;
-		$this->hasRecovery = null;
-		$this->isEncrypted = null;
-		$this->blocks = null;
+		$this->isVolume = false;
+		$this->hasAuth = false;
+		$this->hasRecovery = false;
+		$this->isEncrypted = false;
+		$this->blocks = array();
 	}
 
 } // End RarInfo class

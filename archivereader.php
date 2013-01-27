@@ -5,7 +5,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.5
+ * @version    1.6
  */
 abstract class ArchiveReader
 {
@@ -119,13 +119,13 @@ abstract class ArchiveReader
 	 * Path to the archive file (if any).
 	 * @var string
 	 */
-	public $file;
+	public $file = '';
 
 	/**
 	 * The last error message.
 	 * @var string
 	 */
-	public $error;
+	public $error = '';
 
 	/**
 	 * The number of files in the archive file/data.
@@ -367,11 +367,11 @@ abstract class ArchiveReader
 	protected function reset()
 	{
 		$this->close();
-		$this->file = null;
-		$this->fileSize = null;
-		$this->dataSize = null;
+		$this->file = '';
+		$this->fileSize = 0;
+		$this->dataSize = 0;
 		$this->offset = 0;
-		$this->error = null;
+		$this->error = '';
 		$this->isFragment = false;
 		$this->fileCount = 0;
 	}
