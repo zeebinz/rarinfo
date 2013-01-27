@@ -5,7 +5,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.4
+ * @version    1.5
  */
 abstract class ArchiveReader
 {
@@ -29,10 +29,11 @@ abstract class ArchiveReader
 		// Fix conversion of unsigned longs on 32-bit systems
 		if ($fixLongs && PHP_INT_SIZE <= 4 && strpos($format, 'V') !== false) {
 			$codes = explode('/', $format);
+			$longs = array('V', 'N', 'L');
 			foreach ($unpacked as $key=>$value) {
 				$code = array_shift($codes);
-				if ($code[0] == 'V' && $value < 0) {
-					$unpacked[$key] = $value + 4294967296; // converts to float
+				if (in_array($code[0], $longs) && $value < 0) {
+					$unpacked[$key] = $value + 0x100000000; // converts to float
 				}
 			}
 		}
