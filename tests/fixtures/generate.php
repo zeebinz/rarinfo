@@ -10,6 +10,7 @@ ini_set('display_errors', 'on');
 makeRarFixtures();
 makeSrrFixtures();
 makePar2Fixtures();
+makeZipFixtures();
 
 /**
  * Generates test fixtures from RAR sample files.
@@ -87,6 +88,33 @@ function makePar2Fixtures($pretend=false)
 		if (!$pretend) {
 			$data = "<?php\nreturn ".var_export($data, true).";\n";
 			file_put_contents(dirname(__FILE__)."/par2/$fname", $data);
+		}
+		echo "-- $fname\n";
+	}
+}
+
+/**
+ * Generates test fixtures from ZIP sample files.
+ *
+ * @param   boolean  $pretend  debug output only?
+ * @return  void
+ */
+function makeZipFixtures($pretend=false)
+{
+	require_once dirname(__FILE__).'/../../zipinfo.php';
+	$zip = new zipInfo;
+	foreach(glob(dirname(__FILE__).'/zip/*.zip') as $zipfile) {
+		echo "Generating for $zipfile:\n";
+		$zip->open($zipfile);
+		if ($zip->error) {
+			echo "Error: {$zip->error}\n";
+			continue;
+		}
+		$fname = pathinfo($zipfile, PATHINFO_BASENAME).'.records';
+		$data = $zip->getRecords();
+		if (!$pretend) {
+			$data = "<?php\nreturn ".var_export($data, true).";\n";
+			file_put_contents(dirname(__FILE__)."/zip/$fname", $data);
 		}
 		echo "-- $fname\n";
 	}

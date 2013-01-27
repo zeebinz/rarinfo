@@ -76,6 +76,12 @@ archives that they cover.
 - 1.1 Fixed unpacking of unsigned longs
 - 1.0 Initial release
 
+ZipInfo (extends ArchiveReader)
+--------------------------------
+Class for inspecting the contents of ZIP archives.
+
+- 1.0 Initial release
+
 
 Testing
 -------------------------------
