@@ -51,7 +51,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.0
+ * @version    1.1
  */
 class ZipInfo extends ArchiveReader
 {
@@ -496,6 +496,7 @@ class ZipInfo extends ArchiveReader
 				$this->processExtraFields($record);
 			}
 			$record['next_offset'] = $this->offset + $record['compressed_size'];
+			$this->fileCount++;
 
 			// Data Descriptor follows file data?
 			if ($record['flags'] & self::FILE_DESCRIPTOR_USED) {
@@ -520,7 +521,6 @@ class ZipInfo extends ArchiveReader
 				$record['comment'] = $this->read($record['comment_length']);
 			}
 			$record['next_offset'] = $this->offset;
-			$this->fileCount++;
 		}
 
 		// Record type: END OF CENTRAL DIRECTORY

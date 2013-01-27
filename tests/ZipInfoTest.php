@@ -68,8 +68,8 @@ class ZipInfoTest extends PHPUnit_Framework_TestCase
 	{
 		$zip = new ZipInfo;
 		$zip->open($this->fixturesDir.'/pecl_test.zip');
-		$files = $zip->getFileList();
 
+		$files = $zip->getFileList();
 		$this->assertCount(4, $files);
 		$this->assertSame('bar', $files[0]['name']);
 		$this->assertSame(0, $files[0]['pass']);
@@ -99,6 +99,29 @@ class ZipInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(1, $files[0]['pass']);
 		$this->assertSame(0, $files[0]['compressed']);
 		$this->assertArrayNotHasKey('is_dir', $files[0]);
+	}
+
+	/**
+	 * The End of Central Directory record keeps a count of files in the current
+	 * volume, but if it's missing we should count the Local File records instead.
+	 */
+	public function testCountsLocalFileRecordsIfCentralDirectoryIsMissing()
+	{
+		$zip = new ZipInfo;
+
+		// Missing CDR, but has Local File record:
+		$zip->open($this->fixturesDir.'/large_file_start.zip');
+		$summary = $zip->getSummary();
+		$this->assertSame($zip->file, $summary['zip_file']);
+		$this->assertSame($zip->fileCount, $summary['file_count']);
+		$this->assertSame(1, $summary['file_count']);
+
+		// Missing Local File record, but has CDR:
+		$zip->open($this->fixturesDir.'/large_file_end.zip');
+		$summary = $zip->getSummary();
+		$this->assertSame($zip->file, $summary['zip_file']);
+		$this->assertSame($zip->fileCount, $summary['file_count']);
+		$this->assertSame(1, $summary['file_count']);
 	}
 
 	/**

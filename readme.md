@@ -80,6 +80,7 @@ ZipInfo (extends ArchiveReader)
 --------------------------------
 Class for inspecting the contents of ZIP archives.
 
+- 1.1 Fixed filecount when CDR is missing
 - 1.0 Initial release
 
 
