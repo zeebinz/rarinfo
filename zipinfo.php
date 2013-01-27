@@ -298,7 +298,7 @@ class ZipInfo extends ArchiveReader
 
 	/**
 	 * Extracts the data for the given filename. Note that this is only useful
-	 * if the file hasn't been compressed or encrupted.
+	 * if the file hasn't been compressed or encrypted.
 	 *
 	 * @param   string  $filename  name of the file to extract
 	 * @return  mixed   file data, or false if no file records available
@@ -362,7 +362,7 @@ class ZipInfo extends ArchiveReader
 	/**
 	 * Returns a processed summary of a Local or Central File record.
 	 *
-	 * @param   array  $packet  a valid file record
+	 * @param   array  $record  a valid file record
 	 * @return  array  summary information
 	 */
 	protected function getFileRecordSummary($record)
@@ -659,7 +659,7 @@ class ZipInfo extends ArchiveReader
 		parent::reset();
 
 		$this->records = null;
-		$this->isEmcrypted = null;
+		$this->isEncrypted = null;
 	}
 
 } // End ZipInfo class
