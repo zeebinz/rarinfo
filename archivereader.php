@@ -5,7 +5,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.2
+ * @version    1.3
  */
 abstract class ArchiveReader
 {
@@ -72,6 +72,32 @@ abstract class ArchiveReader
 		return mktime($hrs, $min, $sec, $mon, $day, $year);
 	}
 
+	/**
+	 * Calculates the size of the given file.
+	 *
+	 * This is fiddly on 32-bit systems for sizes larger than 2GB due to internal
+	 * limitations - filesize() returns a signed long - and so needs hackery.
+	 *
+	 * @param   string   $file  full path to the file
+	 * @return  integer/float   the file size in bytes
+	 */
+	public static function getFileSize($file)
+	{
+		// 64-bit systems should be OK
+		if (PHP_INT_SIZE > 4)
+			return filesize($file);
+
+		// Hack for Windows
+		if (DIRECTORY_SEPARATOR === '\\') {
+			$com = new COM('Scripting.FileSystemObject');
+			$f = $com->GetFile($file);
+			return $f->Size;
+		}
+
+		// Hack for *nix
+		return trim(shell_exec('stat -c %s '.escapeshellarg($file)));
+	}
+
 	// ------ Instance variables and methods ---------------------------------------
 
 	/**
@@ -109,7 +135,7 @@ abstract class ArchiveReader
 			return false;
 		}
 		$this->file = $archive;
-		$this->fileSize = filesize($archive);
+		$this->fileSize = self::getFileSize($archive);
 
 		if ($isFragment) {
 
