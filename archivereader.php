@@ -178,7 +178,7 @@ abstract class ArchiveReader
 			fclose($this->handle);
 			$this->handle = null;
 		}
-		$this->data = null;
+		$this->data = '';
 	}
 
 	/**
@@ -250,7 +250,7 @@ abstract class ArchiveReader
 	 * The stored archive file data.
 	 * @var string
 	 */
-	protected $data;
+	protected $data = '';
 
 	/**
 	 * The size in bytes of the currently stored data.
