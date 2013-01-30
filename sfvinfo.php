@@ -98,7 +98,7 @@ class SfvInfo extends ArchiveReader
 			if (strpos($line, ';') === 0)
 				continue;
 
-			if (preg_match('/^(.+)\s([aA-fF-f0-9]{2,8})$/', trim($line), $matches)) {
+			if (preg_match('/^(.+)\s([[:xdigit:]]{2,8})$/', trim($line), $matches)) {
 
 				// Store the file record locally
 				$this->fileList[] = array(

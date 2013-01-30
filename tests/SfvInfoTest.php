@@ -105,7 +105,7 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 	public function testNonSfvDataShouldReturnError()
 	{
 		$sfv = new SfvInfo;
-		$sfv->setData(";could be a comment\r\ninvalid sfv data\r\n");
+		$sfv->setData(";could be a comment\r\ninvalid sfv daT4GHIJ\r\n");
 		$this->assertSame('Not a valid SFV file', $sfv->error);
 
 		// RAR
