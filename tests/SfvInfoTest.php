@@ -98,4 +98,33 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 		);
 	}
 
+	/**
+	 * We should be able to verify simply that any passed data or file only
+	 * contains valid SFV info.
+	 */
+	public function testNonSfvDataShouldReturnError()
+	{
+		$sfv = new SfvInfo;
+		$sfv->setData(";could be a comment\r\ninvalid sfv data\r\n");
+		$this->assertSame('Not a valid SFV file', $sfv->error);
+
+		// RAR
+		$source = $this->fixturesDir.'/../rar/4mb.rar';
+		$sfv = new SfvInfo;
+		$sfv->open($source);
+		$this->assertSame('Not a valid SFV file', $sfv->error);
+
+		// PAR2
+		$source = $this->fixturesDir.'/../par2/testdata.par2';
+		$sfv = new SfvInfo;
+		$sfv->open($source);
+		$this->assertSame('Not a valid SFV file', $sfv->error);
+
+		// ZIP
+		$source = $this->fixturesDir.'/test002.zip';
+		$sfv = new SfvInfo;
+		$sfv->open($source);
+		$this->assertSame('Not a valid SFV file', $sfv->error);
+	}
+
 } // End SfvInfoTest

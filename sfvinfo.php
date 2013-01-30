@@ -31,7 +31,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.2
+ * @version    1.3
  */
 class SfvInfo extends ArchiveReader
 {
@@ -98,7 +98,7 @@ class SfvInfo extends ArchiveReader
 			if (strpos($line, ';') === 0)
 				continue;
 
-			if (preg_match('/^(.+)\s([[:alnum:]]{2,8})$/', trim($line), $matches)) {
+			if (preg_match('/^(.+)\s([aA-fF-f0-9]{2,8})$/', trim($line), $matches)) {
 
 				// Store the file record locally
 				$this->fileList[] = array(
@@ -108,6 +108,13 @@ class SfvInfo extends ArchiveReader
 
 				// Increment the filecount
 				$this->fileCount++;
+
+			} elseif (trim($line) != '') {
+
+				// Contains invalid chars, so assume this isn't an SFV
+				$this->error = 'Not a valid SFV file';
+				$this->close();
+				return false;
 			}
 		}
 
