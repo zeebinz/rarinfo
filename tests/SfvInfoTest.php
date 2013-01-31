@@ -35,6 +35,7 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 
 		$sfv = new SfvInfo;
 		$sfv->open($source);
+		$this->assertEmpty($sfv->error, $sfv->error);
 		$this->assertSame($filecount, $sfv->fileCount);
 
 		// With full file paths, including dirs
@@ -61,7 +62,7 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(filesize($source), $summary['file_size']);
 		$this->assertEmpty($summary['data_size']);
 
-		// The same results should be returned from passing data by reference
+		// The same results should be returned when data is set directly
 		$sfv = new SfvInfo;
 		$data = file_get_contents($source);
 		$sfv->setData($data);
@@ -95,6 +96,16 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 				array('subdir/test 4.txt', '1ddbb63a', 'test 4.txt'),
 				array('subdir1/subdir 2/test 5.txt', '36fbdd27', 'test 5.txt'))
 			),
+			// Unix line endings
+			array('test003.sfv', array(
+				array('testrar.r00', 'f6d8c75f', 'testrar.r00'),
+				array('testrar.r01', '1e9ba708', 'testrar.r01'))
+			),
+			// Mac line endings
+			array('test004.sfv', array(
+				array('testrar.r00', 'f6d8c75f', 'testrar.r00'),
+				array('testrar.r01', '1e9ba708', 'testrar.r01'))
+			),
 		);
 	}
 
@@ -120,7 +131,7 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 		$sfv->open($source);
 		$this->assertSame('Not a valid SFV file', $sfv->error);
 
-		// ZIP
+		// ZIP (contains readable uncompressed SFV file)
 		$source = $this->fixturesDir.'/test002.zip';
 		$sfv = new SfvInfo;
 		$sfv->open($source);
