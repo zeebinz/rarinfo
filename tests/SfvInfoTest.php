@@ -77,7 +77,7 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 	}
 
 	/**
-	 * Provides test data from sample files.
+	 * Provides test data for comparison with sample files.
 	 */
 	public function providerSfvFileRecords()
 	{
@@ -96,12 +96,12 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 				array('subdir/test 4.txt', '1ddbb63a', 'test 4.txt'),
 				array('subdir1/subdir 2/test 5.txt', '36fbdd27', 'test 5.txt'))
 			),
-			// Unix line endings
+			// Unix line endings \n
 			array('test003.sfv', array(
 				array('testrar.r00', 'f6d8c75f', 'testrar.r00'),
 				array('testrar.r01', '1e9ba708', 'testrar.r01'))
 			),
-			// Mac line endings
+			// Mac line endings \r
 			array('test004.sfv', array(
 				array('testrar.r00', 'f6d8c75f', 'testrar.r00'),
 				array('testrar.r01', '1e9ba708', 'testrar.r01'))

@@ -92,10 +92,8 @@ class SfvInfo extends ArchiveReader
 		// Get the available data up to the maximum allowed
 		$data = $this->data ? $this->data : $this->read(min($this->fileSize, $this->maxReadBytes));
 
-		// Normalize line endings
-		$data = str_replace(array("\r\n", "\n\r", "\r"), "\n", $data);
-
-		foreach(explode("\n", $data) as $line) {
+		// Split on all line ending types
+		foreach (preg_split('/\R/', $data) as $line) {
 
 			// Skip comment lines
 			if (strpos($line, ';') === 0)
