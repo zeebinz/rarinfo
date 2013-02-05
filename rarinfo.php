@@ -161,7 +161,7 @@ class RarInfo extends ArchiveReader
 
 	/**
 	 * Signature for the RAR Marker block.
-	 * @bar string
+	 * @var string
 	 */
 	protected $markerBlock = '526172211a0700';
 
