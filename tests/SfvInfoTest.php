@@ -20,9 +20,9 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 	}
 
 	/**
-	 * SFV files can cover individual files and whole directory trees
-	 * with simple CRC32 checksums, and can include comments. Parsing
-	 * should handle spaces and different directory separators.
+	 * SFV files can cover individual files and whole directory trees with simple
+	 * CRC32 checksums, and can include comments. Parsing should handle spaces and
+	 * different directory separators, and all line ending types.
 	 *
 	 * @dataProvider  providerSfvFileRecords
 	 * @param  string  $filename  sample sfv filename
@@ -37,6 +37,9 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 		$sfv->open($source);
 		$this->assertEmpty($sfv->error, $sfv->error);
 		$this->assertSame($filecount, $sfv->fileCount);
+
+		// Comments should be stored
+		$this->assertNotEmpty($sfv->comments);
 
 		// With full file paths, including dirs
 		$list = $sfv->getFileList();
@@ -141,6 +144,7 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertEmpty($sfv->error, $sfv->error);
 		$this->assertSame(2, $sfv->fileCount);
 
+		$this->assertSame("example comment\n", $sfv->comments);
 		$this->assertEquals(array(
 			array(
 				'name' => 'testrar.r00',
@@ -169,4 +173,18 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 			array("; example comment\ntestrar.r00 f6d8c75f\r\ntestrar.r01 1e9ba708\r"),
 		);
 	}
+
+	/**
+	 * We should be able to access any file comments simply, stripped of ; and padding.
+	 */
+	public function testStoresFileComments()
+	{
+		$source = $this->fixturesDir.'/test002.sfv';
+		$sfv = new SfvInfo;
+		$sfv->open($source);
+
+		$comments = "filenames with spaces\nfiles in subdirectories\n";
+		$this->assertSame($comments, $sfv->comments);
+	}
+
 } // End SfvInfoTest

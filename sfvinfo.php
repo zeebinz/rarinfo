@@ -31,10 +31,16 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.4
+ * @version    1.5
  */
 class SfvInfo extends ArchiveReader
 {
+	/**
+	 * SFV file comments.
+	 * @var string
+	 */
+	public $comments = '';
+
 	/**
 	 * Convenience method that outputs a summary list of the SFV file records,
 	 * useful for pretty-printing.
@@ -95,9 +101,11 @@ class SfvInfo extends ArchiveReader
 		// Split on all line ending types
 		foreach (preg_split('/\R/', $data, -1, PREG_SPLIT_NO_EMPTY) as $line) {
 
-			// Skip comment lines
-			if (strpos($line, ';') === 0)
+			// Store comment lines
+			if (strpos($line, ';') === 0) {
+				$this->comments .= trim(substr($line, 1))."\n";
 				continue;
+			}
 
 			if (preg_match('/^(.+)\s([[:xdigit:]]{2,8})$/', trim($line), $matches)) {
 
@@ -133,6 +141,7 @@ class SfvInfo extends ArchiveReader
 	{
 		parent::reset();
 		$this->fileList = array();
+		$this->comments = '';
 	}
 
 } // End SfvInfo class

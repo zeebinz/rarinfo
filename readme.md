@@ -57,6 +57,7 @@ SfvInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of SFV verification files.
 
+- 1.5 File comments are now stored
 - 1.4 Now supports all line ending types
 - 1.3 Improved check for valid SFV data only
 - 1.2 Fixed last byte being discarded when analyzing
