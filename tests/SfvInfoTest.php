@@ -96,16 +96,6 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 				array('subdir/test 4.txt', '1ddbb63a', 'test 4.txt'),
 				array('subdir1/subdir 2/test 5.txt', '36fbdd27', 'test 5.txt'))
 			),
-			// Unix line endings \n
-			array('test003.sfv', array(
-				array('testrar.r00', 'f6d8c75f', 'testrar.r00'),
-				array('testrar.r01', '1e9ba708', 'testrar.r01'))
-			),
-			// Mac line endings \r
-			array('test004.sfv', array(
-				array('testrar.r00', 'f6d8c75f', 'testrar.r00'),
-				array('testrar.r01', '1e9ba708', 'testrar.r01'))
-			),
 		);
 	}
 
@@ -138,4 +128,45 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame('Not a valid SFV file', $sfv->error);
 	}
 
+	/**
+	 * All line ending types, including mixed types, should be supported.
+	 *
+	 * @dataProvider  providerSfvMixedLineEndings
+	 * @param  string  $data  sample sfv data
+	 */
+	public function testSupportsAllLineEndingTypes($data)
+	{
+		$sfv = new SfvInfo;
+		$sfv->setData($data);
+		$this->assertEmpty($sfv->error, $sfv->error);
+		$this->assertSame(2, $sfv->fileCount);
+
+		$this->assertEquals(array(
+			array(
+				'name' => 'testrar.r00',
+				'checksum' => 'f6d8c75f'
+			),
+			array(
+				'name' => 'testrar.r01',
+				'checksum' => '1e9ba708'
+			),
+		), $sfv->getFileList());
+	}
+
+	/**
+	 * Provides test data with different line ending types.
+	 */
+	public function providerSfvMixedLineEndings()
+	{
+		return array(
+			// Unix
+			array("; example comment\ntestrar.r00 f6d8c75f\ntestrar.r01 1e9ba708\n"),
+			// Windows
+			array("; example comment\r\ntestrar.r00 f6d8c75f\r\ntestrar.r01 1e9ba708\r\n"),
+			// Mac
+			array("; example comment\rtestrar.r00 f6d8c75f\rtestrar.r01 1e9ba708\r"),
+			// Mixed
+			array("; example comment\ntestrar.r00 f6d8c75f\r\ntestrar.r01 1e9ba708\r"),
+		);
+	}
 } // End SfvInfoTest

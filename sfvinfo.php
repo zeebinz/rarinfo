@@ -93,7 +93,7 @@ class SfvInfo extends ArchiveReader
 		$data = $this->data ? $this->data : $this->read(min($this->fileSize, $this->maxReadBytes));
 
 		// Split on all line ending types
-		foreach (preg_split('/\R/', $data) as $line) {
+		foreach (preg_split('/\R/', $data, -1, PREG_SPLIT_NO_EMPTY) as $line) {
 
 			// Skip comment lines
 			if (strpos($line, ';') === 0)
@@ -110,7 +110,7 @@ class SfvInfo extends ArchiveReader
 				// Increment the filecount
 				$this->fileCount++;
 
-			} elseif (trim($line) != '') {
+			} else {
 
 				// Contains invalid chars, so assume this isn't an SFV
 				$this->error = 'Not a valid SFV file';
