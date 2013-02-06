@@ -31,7 +31,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.5
+ * @version    1.6
  */
 class SfvInfo extends ArchiveReader
 {
@@ -107,7 +107,7 @@ class SfvInfo extends ArchiveReader
 				continue;
 			}
 
-			if (preg_match('/^(.+)\s([[:xdigit:]]{2,8})$/', trim($line), $matches)) {
+			if (preg_match('/^(.+?)\s+([[:xdigit:]]{2,8})$/', trim($line), $matches)) {
 
 				// Store the file record locally
 				$this->fileList[] = array(
