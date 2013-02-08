@@ -44,7 +44,7 @@ require_once dirname(__FILE__).'/rarinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.2
+ * @version    1.3
  */
 class SrrInfo extends RarInfo
 {
@@ -77,9 +77,9 @@ class SrrInfo extends RarInfo
 	 * @var array
 	 */
 	protected $srrBlockNames = array(
-		0x69 => 'SRR Marker',
-		0x6a => 'Stored File',
-		0x71 => 'RAR File',
+		self::SRR_BLOCK_MARK  => 'SRR Marker',
+		self::SRR_STORED_FILE => 'Stored File',
+		self::SRR_RAR_FILE    => 'RAR File',
 	);
 
 	/**
@@ -224,13 +224,13 @@ class SrrInfo extends RarInfo
 
 			// Block type: STORED FILE
 			if ($block['head_type'] == self::SRR_STORED_FILE) {
-				$block += self::unpack('vname_size', $this->read(2));
+				$block += self::unpack('vname_size', $this->read(2), false);
 				$block['file_name'] = $this->read($block['name_size']);
 				$block['file_data'] = $this->read($block['add_size']);
 
 			// Block type: SRR RAR FILE
 			} elseif ($block['head_type'] == self::SRR_RAR_FILE) {
-				$block += self::unpack('vname_size', $this->read(2));
+				$block += self::unpack('vname_size', $this->read(2), false);
 				$block['file_name'] = $this->read($block['name_size']);
 
 			// Default to RAR block processing
@@ -269,7 +269,6 @@ class SrrInfo extends RarInfo
 	protected function reset()
 	{
 		parent::reset();
-
 		$this->client = '';
 	}
 
