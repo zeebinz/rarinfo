@@ -39,7 +39,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.2
+ * @version    1.3
  */
 class Par2Info extends ArchiveReader
 {
@@ -202,6 +202,9 @@ class Par2Info extends ArchiveReader
 			if ($packet['head_type'] == self::PACKET_FILEDESC && !isset($ret[$packet['file_id']])) {
 				$ret[$packet['file_id']] = $this->getFilePacketSummary($packet);
 			}
+			if ($packet['head_type'] == self::PACKET_FILEVER && empty($ret[$packet['file_id']]['blocks'])) {
+				$ret[$packet['file_id']]['blocks'] = count($packet['block_checksums']);
+			}
 		}
 
 		return $ret;
@@ -232,6 +235,7 @@ class Par2Info extends ArchiveReader
 			'size' => isset($packet['file_length']) ? $packet['file_length'] : 0,
 			'hash' => $packet['file_hash'],
 			'hash_16K' => $packet['file_hash_16K'],
+			'blocks' => 0,
 			'next_offset' => $packet['next_offset'],
 		);
 	}

@@ -81,6 +81,7 @@ Par2Info (extends ArchiveReader)
 Class for inspecting the contents of PAR2 parity files and reporting on the
 archives that they cover.
 
+- 1.3 Added block count to file list entries
 - 1.2 Improved property initialization
 - 1.1 Fixed unpacking of unsigned longs
 - 1.0 Initial release

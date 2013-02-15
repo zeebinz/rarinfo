@@ -84,6 +84,7 @@ class Par2InfoTest extends PHPUnit_Framework_TestCase
 			'size' => 142129,
 			'hash' => '9e44a776f7a1fac4a3569bf734bacb01',
 			'hash_16K' => 'bd1a58ae2f233491c450623596c322eb',
+			'blocks' => 27,
 			'next_offset' => 5576
 		));
 
