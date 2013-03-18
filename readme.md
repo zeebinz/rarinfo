@@ -18,6 +18,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 3.5 Improved Marker Block searching
 - 3.4 Improved property initialization
 - 3.3 Moved dos2unixtime() to ArchiveReader
 - 3.2 Added RarInfo::getFileData() and RarInfo::saveFileData();
@@ -71,6 +72,7 @@ Class for inspecting the contents of SRR files and reporting on the RAR files
 that they cover, as well as allowing extraction of any stored files that they
 might contain.
 
+- 1.4 Improved Marker Block searching
 - 1.3 Improved property initialization
 - 1.2 Data & open file handles now persist until closed manually
 - 1.1 Added easier reporting of client info

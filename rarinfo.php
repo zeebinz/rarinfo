@@ -52,7 +52,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    3.4
+ * @version    3.5
  */
 class RarInfo extends ArchiveReader
 {
@@ -163,7 +163,7 @@ class RarInfo extends ArchiveReader
 	 * Signature for the RAR Marker block.
 	 * @var string
 	 */
-	protected $markerBlock = '526172211a0700';
+	protected $markerBlock = "\x52\x61\x72\x21\x1a\x07\x00";
 
 	/**
 	 * List of block names corresponding to block types.
@@ -471,12 +471,12 @@ class RarInfo extends ArchiveReader
 	protected function findMarkerBlock()
 	{
 		if ($this->data) {
-			return strpos($this->data, pack('H*', $this->markerBlock));
+			return strpos($this->data, $this->markerBlock);
 		}
 		try {
 			$buff = $this->read(min($this->fileSize, $this->maxReadBytes));
 			$this->rewind();
-			return strpos($buff, pack('H*', $this->markerBlock));
+			return strpos($buff, $this->markerBlock);
 
 		} catch (Exception $e) {
 			return false;

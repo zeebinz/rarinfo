@@ -44,7 +44,7 @@ require_once dirname(__FILE__).'/rarinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.3
+ * @version    1.4
  */
 class SrrInfo extends RarInfo
 {
@@ -70,7 +70,7 @@ class SrrInfo extends RarInfo
 	 * Signature for the SRR Marker block.
 	 * @var string
 	 */
-	protected $markerBlock = '696969';
+	protected $markerBlock = "\x69\x69\x69";
 
 	/**
 	 * List of block names corresponding to SRR block types.
