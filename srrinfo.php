@@ -44,7 +44,7 @@ require_once dirname(__FILE__).'/rarinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.4
+ * @version    1.5
  */
 class SrrInfo extends RarInfo
 {
@@ -198,32 +198,32 @@ class SrrInfo extends RarInfo
 	 */
 	protected function analyze()
 	{
-		// Find the MARKER block, or abort if none is found
+		// Find the SRR MARKER block, or abort if none is found
 		if (($startPos = $this->findMarkerBlock()) === false) {
 			$this->error = 'Could not find Marker block, not a valid SRR file';
 			return false;
 		}
+
+		// Start at the SRR MARKER block
 		$this->seek($startPos);
 
-		// Add the SRR Marker block to the list
-		$block = array('offset' => $startPos);
-		$block += self::unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
-		if ($block['head_flags'] & self::APP_NAME_PRESENT) {
-			$block += self::unpack('vapp_name_size', $this->read(2), false);
-			$block['app_name'] = $this->read($block['app_name_size']);
-			$this->client = $block['app_name'];
-		}
-		$this->blocks[] = $block;
-
-		// Analyze all remaining blocks
+		// Analyze all valid blocks
 		$dataSize = $this->data ? $this->dataSize : $this->fileSize;
 		while ($this->offset < $dataSize) try {
 
 			// Get the next block header
 			$block = $this->getNextBlock();
 
+			// Block type: SRR MARKER
+			if ($block['head_type'] == self::SRR_BLOCK_MARK) {
+				if ($block['head_flags'] & self::APP_NAME_PRESENT) {
+					$block += self::unpack('vapp_name_size', $this->read(2), false);
+					$block['app_name'] = $this->read($block['app_name_size']);
+					$this->client = $block['app_name'];
+				}
+
 			// Block type: STORED FILE
-			if ($block['head_type'] == self::SRR_STORED_FILE) {
+			} elseif ($block['head_type'] == self::SRR_STORED_FILE) {
 				$block += self::unpack('vname_size', $this->read(2), false);
 				$block['file_name'] = $this->read($block['name_size']);
 				$block['file_data'] = $this->read($block['add_size']);

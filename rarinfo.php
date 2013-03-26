@@ -52,7 +52,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    3.5
+ * @version    3.6
  */
 class RarInfo extends ArchiveReader
 {
@@ -500,11 +500,8 @@ class RarInfo extends ArchiveReader
 
 		} elseif ($startPos !== false) {
 
-			// Add the Marker block to the list
+			// Start at the MARKER block
 			$this->seek($startPos);
-			$block = array('offset' => $startPos);
-			$block += self::unpack(self::FORMAT_BLOCK_HEADER, $this->read(7), false);
-			$this->blocks[] = $block;
 
 		} elseif ($this->isFragment) {
 
@@ -515,7 +512,7 @@ class RarInfo extends ArchiveReader
 			}
 		}
 
-		// Analyze all remaining blocks
+		// Analyze all valid blocks
 		$dataSize = $this->data ? $this->dataSize : $this->fileSize;
 		while ($this->offset < $dataSize) try {
 
