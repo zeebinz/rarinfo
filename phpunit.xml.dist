@@ -1,10 +1,5 @@
-<!--
-	To run tests cd into this directory and just run:
-		phpunit
-	(it'll automatically use any phpunit.xml file in the current directory)
+<?xml version="1.0" encoding="UTF-8"?>
 
-	Any options you specify when calling phpunit will override the ones in here
--->
 <phpunit colors="true" backupGlobals="false">
 	<testsuites>
 		<testsuite name="Archive Tools Tests">
