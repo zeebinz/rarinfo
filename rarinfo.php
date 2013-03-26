@@ -52,7 +52,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    3.6
+ * @version    3.7
  */
 class RarInfo extends ArchiveReader
 {
@@ -592,15 +592,19 @@ class RarInfo extends ArchiveReader
 
 			// Parse Archive flags
 			if ($block['head_flags'] & self::MAIN_VOLUME) {
+				$block['is_volume'] = true;
 				$this->isVolume = true;
 			}
 			if ($block['head_flags'] & self::MAIN_AUTH) {
+				$block['has_auth'] = true;
 				$this->hasAuth = true;
 			}
 			if ($block['head_flags'] & self::MAIN_RECOVERY) {
+				$block['has_recovery'] = true;
 				$this->hasRecovery = true;
 			}
 			if ($block['head_flags'] & self::MAIN_PASSWORD) {
+				$block['is_encrypted'] = 1;
 				$this->isEncrypted = true;
 			}
 		}
