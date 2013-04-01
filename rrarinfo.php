@@ -160,7 +160,7 @@ class RecursiveRarInfo extends RarInfo
 
 				// We should append any errors
 				if ($archive->error || !($files = $archive->getFileList())) {
-					$error = $archive->error ?: 'No files found';
+					$error = $archive->error ? $archive->error : 'No files found';
 					$ret[] = array('error' => $error, 'source' => $branch);
 					continue;
 				}

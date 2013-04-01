@@ -172,7 +172,7 @@ abstract class ArchiveReader
 
 		// Open the file handle
 		$this->handle = fopen($archive, 'rb');
-		$this->end = $this->end ?: $this->fileSize - 1;
+		if (!$this->end) {$this->end = $this->fileSize - 1;}
 		$this->length = $this->end - $this->start + 1;
 
 		if ($this->end >= $this->fileSize || $this->start >= $this->fileSize || $this->length < 1) {
@@ -209,7 +209,7 @@ abstract class ArchiveReader
 		// Store the data locally up to max bytes
 		$this->data = (strlen($data) > $this->maxReadBytes) ? substr($data, 0, $this->maxReadBytes) : $data;
 		$this->dataSize = strlen($this->data);
-		$this->end = $this->end ?: $this->dataSize - 1;
+		if (!$this->end) {$this->end = $this->dataSize - 1;}
 		$this->length = $this->end - $this->start + 1;
 
 		if ($this->end >= $this->dataSize || $this->start >= $this->dataSize || $this->length < 1) {
@@ -389,7 +389,7 @@ abstract class ArchiveReader
 
 		// Check that enough data is available
 		$newPos = $this->offset + $num;
-		if ($num < 1  || $newPos > $this->length) {
+		if ($num < 1 || $newPos > $this->length) {
 			throw new InvalidArgumentException("Can't read {$num} bytes from offset {$this->offset}");
 		}
 
