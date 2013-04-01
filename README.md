@@ -59,6 +59,13 @@ Class for handling unicode filenames in RAR archive listings.
 - 1.1 Renamed class to avoid collisions
 - 1.0 Initial release
 
+RecursiveRarInfo (extends RarInfo, in rrarinfo.php)
+-------------------------------
+Example class for recursively inspecting the contents of RAR archives packed
+within other RAR archives.
+
+- 1.0 Initial release
+
 SfvInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of SFV verification files.
