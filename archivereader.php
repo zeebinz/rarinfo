@@ -25,14 +25,14 @@ abstract class ArchiveReader
 	public static function unpack($format, $data, $fixLongs=true)
 	{
 		$unpacked = unpack($format, $data);
+		$longs = 'VNL';
 
 		// Fix conversion of unsigned longs on 32-bit systems
-		if ($fixLongs && PHP_INT_SIZE <= 4 && strpos($format, 'V') !== false) {
+		if ($fixLongs && PHP_INT_SIZE <= 4 && preg_match("/[{$longs}]++/", $format)) {
 			$codes = explode('/', $format);
-			$longs = array('V', 'N', 'L');
-			foreach ($unpacked as $key=>$value) {
+			foreach ($unpacked as $key => $value) {
 				$code = array_shift($codes);
-				if (in_array($code[0], $longs) && $value < 0) {
+				if (strpos($longs, $code[0]) !== false && $value < 0) {
 					$unpacked[$key] = $value + 0x100000000; // converts to float
 				}
 			}
@@ -42,13 +42,14 @@ abstract class ArchiveReader
 	}
 
 	/**
-	 * Converts two longs into a float to represent a 64-bit integer.
+	 * Converts two longs to a float to represent a 64-bit integer on 32-bit
+	 * systems, otherwise returns the integer.
 	 *
 	 * If more precision is needed, the bcmath functions should be used.
 	 *
 	 * @param   integer  $low   the low 32 bits
 	 * @param   integer  $high  the high 32 bits
-	 * @return  float
+	 * @return  float/integer
 	 */
 	public static function int64($low, $high)
 	{
