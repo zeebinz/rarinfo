@@ -6,6 +6,8 @@ ArchiveReader
 Abstract base class for the various file inspectors that defines the basic API
 and implements common methods for file/data handling.
 
+- 1.7 Added support for setting analysis byte ranges, improved handling of  
+      archive file fragments, added default constructor, and misc fixes.
 - 1.6 Improved property initialization
 - 1.5 Improved method for unpacking unsigned longs
 - 1.4 Seeking in files beyond PHP_INT_MAX now throws exception
@@ -18,6 +20,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 3.8 Added support for byte ranges, better handling of RAR fragments
 - 3.7 Added more info to Archive block output
 - 3.6 Improved handling of Marker blocks, with new test files
 - 3.5 Improved Marker block searching
@@ -60,6 +63,7 @@ SfvInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of SFV verification files.
 
+- 1.7 Added support for byte ranges
 - 1.6 Fixed regex greediness with extra whitespaces
 - 1.5 File comments are now stored
 - 1.4 Now supports all line ending types
@@ -74,6 +78,7 @@ Class for inspecting the contents of SRR files and reporting on the RAR files
 that they cover, as well as allowing extraction of any stored files that they
 might contain.
 
+- 1.6 Added support for byte ranges
 - 1.5 Improved handling of Marker blocks
 - 1.4 Improved Marker block searching
 - 1.3 Improved property initialization
@@ -86,6 +91,7 @@ Par2Info (extends ArchiveReader)
 Class for inspecting the contents of PAR2 parity files and reporting on the
 archives that they cover.
 
+- 1.4 Added support for byte ranges
 - 1.3 Added block count to file list entries
 - 1.2 Improved property initialization
 - 1.1 Fixed unpacking of unsigned longs
@@ -95,6 +101,7 @@ ZipInfo (extends ArchiveReader)
 --------------------------------
 Class for inspecting the contents of ZIP archives.
 
+- 1.3 Added support for byte ranges
 - 1.2 Improved property initialization
 - 1.1 Fixed filecount when CDR is missing
 - 1.0 Initial release

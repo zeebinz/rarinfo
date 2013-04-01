@@ -5,7 +5,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.6
+ * @version    1.7
  */
 abstract class ArchiveReader
 {
@@ -135,36 +135,89 @@ abstract class ArchiveReader
 	public $fileCount = 0;
 
 	/**
-	 * Opens a handle to the archive file, or loads data from a file fragment up to
-	 * maxReadBytes, and analyzes the archive contents.
+	 * Default constructor for loading and analyzing archive files.
+	 *
+	 * @param   string   $file        path to the archive file
+	 * @param   boolean  $isFragment  true if file is an archive fragment
+	 * @param   array    $range       the start and end byte positions
+	 * @return  void
+	 */
+	public function __construct($file=null, $isFragment=false, array $range=null)
+	{
+		if ($file) $this->open($file, $isFragment, $range);
+	}
+
+	/**
+	 * Opens a handle to the archive file and analyzes the archive contents,
+	 * optionally within a defined byte range only.
 	 *
 	 * @param   string   $file        path to the file
 	 * @param   boolean  $isFragment  true if file is an archive fragment
+	 * @param   array    $range       the start and end byte positions
 	 * @return  boolean  false if archive analysis fails
 	 */
-	public function open($file, $isFragment=false)
+	public function open($file, $isFragment=false, array $range=null)
 	{
 		$this->reset();
 		$this->isFragment = $isFragment;
-		if (!($archive = realpath($file))) {
+		if (!$this->range($range)) {return false;}
+
+		if (!$file || !($archive = realpath($file)) || !is_file($archive)) {
 			$this->error = "File does not exist ($file)";
 			return false;
 		}
+
 		$this->file = $archive;
 		$this->fileSize = self::getFileSize($archive);
 
-		if ($isFragment) {
+		// Open the file handle
+		$this->handle = fopen($archive, 'rb');
+		$this->end = $this->end ?: $this->fileSize - 1;
+		$this->length = $this->end - $this->start + 1;
 
-			// Read the fragment into memory
-			$this->data = file_get_contents($archive, NULL, NULL, 0, $this->maxReadBytes);
-			$this->dataSize = strlen($this->data);
-
-		} else {
-
-			// Open the file handle
-			$this->handle = fopen($archive, 'rb');
+		if ($this->end >= $this->fileSize || $this->start >= $this->fileSize || $this->length < 1) {
+			$this->error = "Byte range ({$this->start} - {$this->end}) is invalid";
+			return false;
 		}
 
+		$this->rewind();
+		return $this->analyze();
+	}
+
+	/**
+	 * Loads data up to maxReadBytes and analyzes the archive contents, optionally
+	 * within a defined byte range only.
+	 *
+	 * This method is recommended when dealing with file fragments.
+	 *
+	 * @param   string   $data        archive data to be analyzed
+	 * @param   boolean  $isFragment  true if data is an archive fragment
+	 * @param   array    $range       the start and end byte positions
+	 * @return  boolean  false if archive analysis fails
+	 */
+	public function setData($data, $isFragment=false, array $range=null)
+	{
+		$this->reset();
+		$this->isFragment = $isFragment;
+		if (!$this->range($range)) {return false;}
+
+		if (strlen($data) == 0) {
+			$this->error = 'No data was passed, nothing to analyze';
+			return false;
+		}
+
+		// Store the data locally up to max bytes
+		$this->data = (strlen($data) > $this->maxReadBytes) ? substr($data, 0, $this->maxReadBytes) : $data;
+		$this->dataSize = strlen($this->data);
+		$this->end = $this->end ?: $this->dataSize - 1;
+		$this->length = $this->end - $this->start + 1;
+
+		if ($this->end >= $this->dataSize || $this->start >= $this->dataSize || $this->length < 1) {
+			$this->error = "Byte range ({$this->start} - {$this->end}) is invalid";
+			return false;
+		}
+
+		$this->rewind();
 		return $this->analyze();
 	}
 
@@ -183,28 +236,53 @@ abstract class ArchiveReader
 	}
 
 	/**
-	 * Loads data up to maxReadBytes and analyzes the archive contents.
+	 * Sets the maximum number of stored data bytes to analyze.
 	 *
-	 * This method is recommended when dealing with file fragments.
-	 *
-	 * @param   string   $data        archive data to be analyzed
-	 * @param   boolean  $isFragment  true if data is an archive fragment
-	 * @return  boolean  false if archive analysis fails
+	 * @param   integer  $bytes  the max bytes to read
+	 * @return  void
 	 */
-	public function setData($data, $isFragment=false)
+	public function setMaxReadBytes($bytes)
 	{
-		$this->reset();
-		$this->isFragment = $isFragment;
-		if (strlen($data) == 0) {
-			$this->error = 'No data was passed, nothing to analyze';
+		if (is_int($bytes) && $bytes > 0) {
+			$this->maxReadBytes = $bytes;
+		}
+	}
+
+	/**
+	 * Sets the absolute start and end positions in the file/data to be analyzed
+	 * (zero-indexed and inclusive of the end byte).
+	 *
+	 * @param   array    $range  the start and end byte positions
+	 * @return  boolean  false if ranges are invalid
+	 */
+	protected function range(array $range=null)
+	{
+		$start = isset($range[0]) ? $range[0] : 0;
+		$end   = isset($range[1]) ? $range[1] : 0;
+
+		if ($start < 0 || $end < 0 || !is_int($start) || !is_int($end)) {
+			$this->error = "Start ($start) and end ($end) points must be positive integers";
 			return false;
 		}
+		if ($end < $start) {
+			$this->error = "End point ($end) must be higher than start point ($start)";
+			return false;
+		}
+		$this->start = $start;
+		$this->end = $end;
 
-		// Store the data locally up to max bytes
-		$this->data = (strlen($data) > $this->maxReadBytes) ? substr($data, 0, $this->maxReadBytes) : $data;
-		$this->dataSize = strlen($this->data);
+		return true;
+	}
 
-		return $this->analyze();
+	/**
+	 * A full summary will be returned by default when converting the archive
+	 * object to a string, such as when echoing it.
+	 *
+	 * @return  string  archive summary
+	 */
+	public function __toString()
+	{
+		return print_r($this->getSummary(true), true);
 	}
 
 	/**
@@ -239,7 +317,7 @@ abstract class ArchiveReader
 	 * The maximum length of filenames (for sanity checking).
 	 * @var integer
 	 */
-	protected $maxFilenameLength = 1024;
+	protected $maxFilenameLength = 256;
 
 	/**
 	 * Is this a file/data fragment?
@@ -266,7 +344,25 @@ abstract class ArchiveReader
 	protected $fileSize = 0;
 
 	/**
-	 * A pointer to the current position in the data or file.
+	 * The starting position for the analysis.
+	 * @var integer
+	 */
+	protected $start = 0;
+
+	/**
+	 * The ending position for the analysis.
+	 * @var integer
+	 */
+	protected $end = 0;
+
+	/**
+	 * The number of bytes to analyze from the $start position.
+	 * @var integer
+	 */
+	protected $length = 0;
+
+	/**
+	 * The current position relative to the $start position.
 	 * @var integer
 	 */
 	protected $offset = 0;
@@ -279,11 +375,13 @@ abstract class ArchiveReader
 	abstract protected function analyze();
 
 	/**
-	 * Reads the given number of bytes from the stored data and moves the
-	 * pointer forward.
+	 * Reads the given number of bytes from the archive file/data and moves the
+	 * offset pointer forward.
 	 *
 	 * @param   integer  $num  number of bytes to read
-	 * @return  string   byte string
+	 * @return  string   the byte string
+	 * @throws  InvalidArgumentException
+	 * @throws  RangeException
 	 */
 	protected function read($num)
 	{
@@ -291,15 +389,13 @@ abstract class ArchiveReader
 
 		// Check that enough data is available
 		$newPos = $this->offset + $num;
-		if (($num < 1 ) || ($this->data && ($newPos > $this->dataSize))
-			|| (!$this->data && ($newPos > $this->fileSize))
-			) {
-			throw new Exception('End of readable data reached');
+		if ($num < 1  || $newPos > $this->length) {
+			throw new InvalidArgumentException("Can't read {$num} bytes from offset {$this->offset}");
 		}
 
 		// Read the requested bytes
 		if ($this->data) {
-			$read = substr($this->data, $this->offset, $num);
+			$read = substr($this->data, $this->tell(), $num);
 		} elseif (is_resource($this->handle)) {
 			$read = fread($this->handle, $num);
 		}
@@ -308,7 +404,7 @@ abstract class ArchiveReader
 		if (!isset($read) || (($rlen = strlen($read)) < $num)) {
 			$rlen = isset($rlen) ? $rlen : 'none';
 			$this->error = "Not enough data to read ({$num} bytes requested, {$rlen} available)";
-			throw new Exception('Read error');
+			throw new RangeException($this->error);
 		}
 
 		// Move the data pointer
@@ -318,37 +414,52 @@ abstract class ArchiveReader
 	}
 
 	/**
-	 * Moves the current pointer to the given position in the stored data or file.
+	 * Moves the current offset pointer to a position in the stored data or file
+	 * relative to the start position.
 	 *
 	 * Note that seeking in files past the 2GB limit on 32-bit systems is either
 	 * impossible or needs an incredibly slow hack due to the fseek() pointer not
 	 * behaving after 2GB. The only real solution here is to use a 64-bit system.
 	 *
-	 * @param   integer/float  $pos  new pointer position
+	 * @param   integer  $pos  new pointer position
 	 * @return  void
+	 * @throws  RuntimeException
 	 */
 	protected function seek($pos)
 	{
-		if ($this->data && ($pos > $this->dataSize || $pos < 0)) {
-			$pos = $this->dataSize;
-		} elseif (!$this->data && ($pos > $this->fileSize || $pos < 0)) {
-			$pos = $this->fileSize;
+		if ($pos > $this->length || $pos < 0) {
+			$pos = $this->length; // set to EOF
 		}
 
-		if (!$this->data && is_resource($this->handle)) {
+		if ($this->file && is_resource($this->handle)) {
 			$max = PHP_INT_MAX;
-			if ($pos >= $max) {
+			$file_pos = $this->start + $pos;
+			if ($file_pos >= $max) {
 				$this->error = 'The file is too large for this PHP version (> '.self::formatSize($max).')';
-				throw new Exception('Seek error');
+				throw new RuntimeException($this->error);
 			}
-			fseek($this->handle, $pos, SEEK_SET);
+			fseek($this->handle, $file_pos, SEEK_SET);
 		}
 
 		$this->offset = $pos;
 	}
 
 	/**
-	 * Sets the file or stored data pointer to the starting position.
+	 * Provides the absolute position within the current file/data rather than
+	 * the offset relative to the defined start position.
+	 *
+	 * @return  integer  the absolute file/data position
+	 */
+	protected function tell()
+	{
+		if (!$this->data && is_resource($this->handle))
+			return ftell($this->handle);
+
+		return $this->start + $this->offset;
+	}
+
+	/**
+	 * Sets the file/data offset pointer to the starting position.
 	 *
 	 * @return  void
 	 */
@@ -357,7 +468,7 @@ abstract class ArchiveReader
 		if (is_resource($this->handle)) {
 			rewind($this->handle);
 		}
-		$this->offset = 0;
+		$this->seek(0);
 	}
 
 	/**
@@ -371,6 +482,9 @@ abstract class ArchiveReader
 		$this->file = '';
 		$this->fileSize = 0;
 		$this->dataSize = 0;
+		$this->start = 0;
+		$this->end = 0;
+		$this->length = 0;
 		$this->offset = 0;
 		$this->error = '';
 		$this->isFragment = false;

@@ -39,7 +39,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.3
+ * @version    1.4
  */
 class Par2Info extends ArchiveReader
 {
@@ -247,14 +247,10 @@ class Par2Info extends ArchiveReader
 	 */
 	protected function findPacketMarker()
 	{
-		if ($this->data) {
-			return strpos($this->data, self::PACKET_MARKER);
-		}
 		try {
-			$buff = $this->read(min($this->fileSize, $this->maxReadBytes));
+			$buff = $this->read(min($this->length, $this->maxReadBytes));
 			$this->rewind();
 			return strpos($buff, self::PACKET_MARKER);
-
 		} catch (Exception $e) {
 			return false;
 		}
@@ -275,8 +271,7 @@ class Par2Info extends ArchiveReader
 		$this->seek($startPos);
 
 		// Analyze all packets
-		$dataSize = $this->data ? $this->dataSize : $this->fileSize;
-		while ($this->offset < $dataSize) try {
+		while ($this->offset < $this->length) try {
 
 			// Get the next packet header
 			$packet = $this->getNextPacket();
@@ -391,7 +386,7 @@ class Par2Info extends ArchiveReader
 		}
 
 		// Packet type: FILE DESCRIPTION
-		elseif ($packet['head_type'] == self::PACKET_FILEDESC){
+		elseif ($packet['head_type'] == self::PACKET_FILEDESC) {
 			$packet += self::unpack(self::FORMAT_PACKET_FILEDESC, $this->read(56));
 			$packet['file_length'] = self::int64($packet['file_length'], $packet['file_length_high']);
 			$len = ($packet['offset'] + $packet['head_length']) - $this->offset;

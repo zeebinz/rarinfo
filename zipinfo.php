@@ -51,7 +51,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.2
+ * @version    1.3
  */
 class ZipInfo extends ArchiveReader
 {
@@ -313,8 +313,18 @@ class ZipInfo extends ArchiveReader
 		// Get the file data
 		foreach ($this->records AS $record) {
 			if ($record['type'] == self::RECORD_LOCAL_FILE && $record['file_name'] == $filename) {
-				$this->seek($record['offset'] + 30 + $record['file_name_length'] + $record['extra_length']);
-				return $this->read($record['uncompressed_size']);
+				$start = $record['offset'] + 30 + $record['file_name_length'] + $record['extra_length'];
+				try {
+					$this->seek($start);
+					return $this->read($record['uncompressed_size']);
+				} catch (Exception $e) {
+					if (!$this->isFragment) {
+						$this->error = 'File data is incomplete or unavailable';
+						return false;
+					}
+					$this->seek($start);
+					return $this->read($this->length - $this->offset);
+				}
 			}
 		}
 
@@ -339,13 +349,19 @@ class ZipInfo extends ArchiveReader
 		// Write the data to disk
 		foreach ($this->records AS $record) {
 			if ($record['type'] == self::RECORD_LOCAL_FILE && $record['file_name'] == $filename) {
-				$this->seek($record['offset'] + 30 + $record['file_name_length'] + $record['extra_length']);
-				$end = $this->offset + $record['uncompressed_size'];
 				$fh = fopen($destination, 'wb');
-				while ($this->offset < $end) {
-					fwrite($fh, $this->read(min(1024, $record['uncompressed_size'])));
+				try {
+					$this->seek($record['offset'] + 30 + $record['file_name_length'] + $record['extra_length']);
+					$mlen = min($this->length, $this->offset + $record['uncompressed_size']);
+					$rlen = min($this->length, $record['uncompressed_size']);
+					while ($this->offset < $mlen) {
+						fwrite($fh, $this->read(min(1024, $rlen)));
+					}
+					fclose($fh);
+				} catch (Exception $e) {
+					fclose($fh);
+					if ($this->error) {break;}
 				}
-				fclose($fh);
 				return true;
 			}
 		}
@@ -389,15 +405,11 @@ class ZipInfo extends ArchiveReader
 	protected function findMarkerRecord()
 	{
 		// Buffer the data to search
-		if ($this->data) {
-			$buff = $this->data;
-		} else {
-			try {
-				$buff = $this->read(min($this->fileSize, $this->maxReadBytes));
-				$this->rewind();
-			} catch (Exception $e) {
-				return false;
-			}
+		try {
+			$buff = $this->read(min($this->length, $this->maxReadBytes));
+			$this->rewind();
+		} catch (Exception $e) {
+			return false;
 		}
 
 		// Try to find the first Local File record
@@ -423,8 +435,7 @@ class ZipInfo extends ArchiveReader
 		$this->seek($startPos);
 
 		// Analyze all records
-		$dataSize = $this->data ? $this->dataSize : $this->fileSize;
-		while ($this->offset < $dataSize) try {
+		while ($this->offset < $this->length) try {
 
 			// Get the next record header
 			if (($record = $this->getNextRecord()) === false) {continue;}

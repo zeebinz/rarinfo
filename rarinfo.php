@@ -52,7 +52,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    3.7
+ * @version    3.8
  */
 class RarInfo extends ArchiveReader
 {
@@ -235,6 +235,7 @@ class RarInfo extends ArchiveReader
 			'rar_file' => $this->file,
 			'file_size' => $this->fileSize,
 			'data_size' => $this->dataSize,
+			'use_range' => "{$this->start}-{$this->end}",
 			'is_volume' => (int) $this->isVolume,
 			'has_auth' => (int) $this->hasAuth,
 			'has_recovery' => (int) $this->hasRecovery,
@@ -244,6 +245,9 @@ class RarInfo extends ArchiveReader
 		$summary['file_count'] = $fileList ? count($fileList) : 0;
 		if ($full) {
 			$summary['file_list'] = $fileList;
+		}
+		if ($this->error) {
+			$summary['error'] = $this->error;
 		}
 
 		return $summary;
@@ -324,8 +328,18 @@ class RarInfo extends ArchiveReader
 		// Get the file data
 		foreach ($this->blocks AS $block) {
 			if ($block['head_type'] == self::BLOCK_FILE && $block['file_name'] == $filename) {
-				$this->seek($block['offset'] + $block['head_size']);
-				return $this->read($block['next_offset'] - $this->offset);
+				$start = $block['offset'] + $block['head_size'];
+				try {
+					$this->seek($start);
+					return $this->read($block['next_offset'] - $this->offset);
+				} catch (Exception $e) {
+					if (!$this->isFragment) {
+						$this->error = 'File data is incomplete or unavailable';
+						return false;
+					}
+					$this->seek($start);
+					return $this->read($this->length - $this->offset);
+				}
 			}
 		}
 
@@ -351,19 +365,40 @@ class RarInfo extends ArchiveReader
 		// Write the data to disk
 		foreach ($this->blocks AS $block) {
 			if ($block['head_type'] == self::BLOCK_FILE && $block['file_name'] == $filename) {
-				$this->seek($block['offset'] + $block['head_size']);
-				$mlen = $block['next_offset'] - $this->offset;
 				$fh = fopen($destination, 'wb');
-				while ($this->offset < $block['next_offset']) {
-					fwrite($fh, $this->read(min(1024, $mlen)));
+				try {
+					$this->seek($block['offset'] + $block['head_size']);
+					$mlen = min($this->length, $block['next_offset']);
+					$rlen = min($this->length, $block['next_offset'] - $this->offset);
+					while ($this->offset < $mlen) {
+						fwrite($fh, $this->read(min(1024, $rlen)));
+					}
+					fclose($fh);
+				} catch (Exception $e) {
+					fclose($fh);
+					if ($this->error) {break;}
 				}
-				fclose($fh);
 				return true;
 			}
 		}
 
 		return false;
 	}
+
+	/**
+	 * List of block types and Subblock subtypes without bodies.
+	 * @var array
+	 */
+	protected $headersOnly = array(
+		'type'    => array(),
+		'subtype' => array()
+	);
+
+	/**
+	 * List of blocks found in the archive.
+	 * @var array
+	 */
+	protected $blocks = array();
 
 	/**
 	 * Returns a processed summary of a RAR File block.
@@ -388,44 +423,33 @@ class RarInfo extends ArchiveReader
 	}
 
 	/**
-	 * List of block types and Subblock subtypes without bodies.
-	 * @var array
-	 */
-	protected $headersOnly = array(
-		'type'    => array(),
-		'subtype' => array()
-	);
-
-	/**
-	 * List of blocks found in the archive.
-	 * @var array
-	 */
-	protected $blocks = array();
-
-	/**
-	 * Searches for a valid file header in the data or file, and moves the current
+	 * Searches for a valid File header in the data or file, and moves the current
 	 * pointer to its starting offset.
 	 *
-	 * This (slow) hack is only useful when handling RAR file fragments.
+	 * This (VERY SLOW) hack is only useful when handling RAR file fragments.
 	 *
 	 * @return  boolean  false if no valid File header is found
 	 */
 	protected function findFileHeader()
 	{
-		$dataSize = $this->data ? $this->dataSize : $this->fileSize;
-		while ($this->offset < $dataSize) try {
+		$length = min($this->length, $this->maxReadBytes);
+		while ($this->offset < $length) try {
 
 			// Search for a BLOCK_FILE byte hint
 			if (ord($this->read(1)) != self::BLOCK_FILE || $this->offset < 3) {continue;}
 			$this->seek($this->offset - 3);
 
-			// Run a File header CRC check
+			// Run a File header CRC & sanity check
 			$block = $this->getNextBlock();
 			if ($this->checkFileHeaderCRC($block)) {
+				$this->seek($block['offset'] + 7);
+				$this->processBlock($block);
+				if ($this->sanityCheckFileHeader($block)) {
 
-				// A valid File header was found
-				$this->seek($block['offset']);
-				return true;
+					// A valid File header was found
+					$this->seek($block['offset']);
+					return true;
+				}
 			}
 
 			// Continue searching from the next byte
@@ -433,9 +457,9 @@ class RarInfo extends ArchiveReader
 			continue;
 
  		// No more readable data, or read error
-		} catch (Exception $e) {
-			return false;
-		}
+		} catch (Exception $e) {}
+
+		return false;
 	}
 
 	/**
@@ -446,19 +470,15 @@ class RarInfo extends ArchiveReader
 	 */
 	protected function checkFileHeaderCRC($block)
 	{
-		// Get the File header CRC data
-		$this->seek($block['offset'] + 2);
 		try {
+			$this->seek($block['offset'] + 2);
 			$data = $this->read($block['head_size'] - 2);
 			$crc = crc32($data) & 0xffff;
-			if ($crc === $block['head_crc']) {
-				return true;
-			}
-
-		// No more readable data, or read error
-		} catch (Exception $e) {
+			return ($crc === $block['head_crc']);
+		} catch (Exception $e){
 			return false;
 		}
+	}
 
 	/**
 	 * File header CRC checks can produce false positives, so this is a
@@ -488,14 +508,10 @@ class RarInfo extends ArchiveReader
 	 */
 	protected function findMarkerBlock()
 	{
-		if ($this->data) {
-			return strpos($this->data, $this->markerBlock);
-		}
 		try {
-			$buff = $this->read(min($this->fileSize, $this->maxReadBytes));
+			$buff = $this->read(min($this->length, $this->maxReadBytes));
 			$this->rewind();
 			return strpos($buff, $this->markerBlock);
-
 		} catch (Exception $e) {
 			return false;
 		}
@@ -531,8 +547,7 @@ class RarInfo extends ArchiveReader
 		}
 
 		// Analyze all valid blocks
-		$dataSize = $this->data ? $this->dataSize : $this->fileSize;
-		while ($this->offset < $dataSize) try {
+		while ($this->offset < $this->length) try {
 
 			// Get the next block header
 			$block = $this->getNextBlock();
@@ -557,6 +572,12 @@ class RarInfo extends ArchiveReader
 		} catch (Exception $e) {
 			if ($this->error) {$this->close(); return false;}
 			break;
+		}
+
+		// Check for valid blocks
+		if (empty($this->blocks)) {
+			$this->error = 'No valid RAR blocks were found';
+			return false;
 		}
 
 		// Analysis was successful

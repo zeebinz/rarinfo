@@ -23,8 +23,91 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 	}
 
 	/**
+	 * We need to be able to seek accurately through the available data and check
+	 * that read requests are not out of bounds. Trying to read past the last byte
+	 * should throw an exception, trying to seek out of bounds should set the
+	 * internal pointer to EOF.
+	 */
+	public function testHandlesBasicSeekingAndReading()
+	{
+		$data = "some sample data for testing\n";
+		$length = strlen($data);
+		$archive = new TestArchiveReader;
+
+		$archive->data   = $data;
+		$archive->start  = 0;
+		$archive->end    = $length - 1;
+		$archive->length = $length;
+
+		// Within bounds
+		$archive->seek(0);
+		$this->assertSame(0, $archive->offset);
+		$archive->seek(3);
+		$this->assertSame(3, $archive->offset);
+		$archive->seek($archive->end);
+		$this->assertSame($archive->end, $archive->offset);
+		$archive->seek($archive->end + 5);
+		$this->assertSame($archive->end + 1, $archive->offset);
+		$archive->seek(-1);
+		$this->assertSame($archive->end + 1, $archive->offset);
+		$archive->seek(0);
+		$this->assertSame(0, $archive->offset);
+
+		$read = $archive->read(0);
+		$this->assertSame(0, $archive->offset);
+		$this->assertSame('', $read);
+		$read = $archive->read(1);
+		$this->assertSame(1, $archive->offset);
+		$this->assertSame('s', $read);
+		$read = $archive->read(3);
+		$this->assertSame(4, $archive->offset);
+		$this->assertSame('ome', $read);
+		$read = $archive->read(3);
+		$this->assertSame(7, $archive->offset);
+		$this->assertSame(' sa', $read);
+
+		$archive->seek(5);
+		$read = $archive->read(6);
+		$this->assertSame(11, $archive->offset);
+		$this->assertSame('sample', $read);
+		$archive->seek($archive->end);
+		$read = $archive->read(1);
+		$this->assertSame($archive->end + 1, $archive->offset);
+		$this->assertSame("\n", $read);
+
+		$archive->seek(0);
+		$read = $archive->read($length);
+		$this->assertSame($archive->end + 1, $archive->offset);
+		$this->assertSame($data, $read);
+
+		// Out of bounds
+		try {
+			$archive->seek(0);
+			$read = $archive->read($length + 1);
+		} catch (InvalidArgumentException $e) {}
+		$this->assertSame(0, $archive->offset);
+		try {
+			$archive->seek($archive->end + 1);
+			$read = $archive->read(1);
+		} catch (InvalidArgumentException $e) {}
+		$this->assertSame($archive->end + 1, $archive->offset);
+		try {
+			$archive->seek($archive->end);
+			$read = $archive->read(2);
+		} catch (InvalidArgumentException $e) {}
+		$this->assertSame($archive->end, $archive->offset);
+		try {
+			$archive->seek($archive->end - 1);
+			$read = $archive->read(3);
+		} catch (InvalidArgumentException $e) {}
+		$this->assertSame($archive->end - 1, $archive->offset);
+	}
+
+	/**
 	 * Files can be streamed directly using the open() method, with any errors
 	 * reported via the public $error property.
+	 *
+	 * @depends testHandlesBasicSeekingAndReading
 	 */
 	public function testHandlesFileStreams()
 	{
@@ -33,7 +116,7 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$this->assertTrue($archive->open($this->testFile));
 		$this->assertEmpty($archive->error, $archive->error);
 		$this->assertSame($this->testFile, $archive->file);
-		$this->assertTrue(is_resource($archive->getHandle()));
+		$this->assertTrue(is_resource($archive->handle));
 		$this->assertTrue($archive->analyzed);
 
 		$summary = $archive->getSummary();
@@ -41,7 +124,7 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(0, $summary['dataSize']);
 
 		$archive->close();
-		$this->assertFalse(is_resource($archive->getHandle()));
+		$this->assertFalse(is_resource($archive->handle));
 
 		$this->assertFalse($archive->open('missingfile'));
 		$this->assertSame('File does not exist (missingfile)', $archive->error);
@@ -51,6 +134,8 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 	/**
 	 * Data can be passed directly to the instance via the setData() method, with
 	 * any errors reported via the public $error property.
+	 *
+	 * @depends testHandlesBasicSeekingAndReading
 	 */
 	public function testHandlesDataFromMemory()
 	{
@@ -60,14 +145,114 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$this->assertTrue($archive->setData($data));
 		$this->assertEmpty($archive->error, $archive->error);
 		$this->assertTrue($archive->analyzed);
-		
+		$this->assertSame($data, $archive->data);
+
 		$summary = $archive->getSummary();
 		$this->assertSame(strlen($data), $summary['dataSize']);
 		$this->assertEmpty($summary['fileSize']);
 		$archive->close();
 
 		$this->assertFalse($archive->setData(''));
-		$this->assertSame('No data was passed, nothing to analyze', $archive->error);		
+		$this->assertSame('No data was passed, nothing to analyze', $archive->error);
+	}
+
+	/**
+	 * We should be able to specify the start and end points for the archive analysis
+	 * transparently, with all offsets made relative to the given start point.
+	 *
+	 * @depends testHandlesFileStreams
+	 * @depends testHandlesDataFromMemory
+	 */
+	public function testByteRangesCanBeSpecifiedForAnalysis()
+	{
+		$data = file_get_contents($this->testFile);
+		$fsize = filesize($this->testFile);
+		$archive = new TestArchiveReader;
+
+		// Without set ranges
+		$len  = $fsize - 1;
+		$tell = $len - ($len % $archive->readSize);
+		$archive->open($this->testFile);
+		$this->assertSame(0, $archive->start);
+		$this->assertSame($fsize - 1, $archive->end);
+		$this->assertSame($tell, $archive->tell());
+
+		$archive->setData($data);
+		$this->assertSame(0, $archive->start);
+		$this->assertSame($fsize - 1, $archive->end);
+		$this->assertSame($tell, $archive->tell());
+
+		// With set ranges
+		$ranges = array(array(5, 9), array(0, 99), array(50, 249), array(5, $fsize - 1));
+
+		foreach ($ranges as $range)
+		{
+			$len  = $range[1] - $range[0] + 1;
+			$tell = $range[0] + ($len - ($len % $archive->readSize));
+
+			$archive->open($this->testFile, false, $range);
+			$this->assertSame($range[0], $archive->start);
+			$this->assertSame($range[1], $archive->end);
+			$this->assertSame($tell, $archive->tell(), "Length is: $len, offset is: {$archive->offset}");
+
+			$archive->setData($data, false, $range);
+			$this->assertSame($range[0], $archive->start);
+			$this->assertSame($range[1], $archive->end);
+			$this->assertSame($tell, $archive->tell(), "Length is: $len, offset is: {$archive->offset}");
+		}
+	}
+
+	/**
+	 * We shouldn't be able to set ranges that are out of the bounds of any
+	 * set data or opened file, and we should handle these as errors rather
+	 * than throw exceptions.
+	 *
+	 * @depends testHandlesFileStreams
+	 * @depends testHandlesDataFromMemory
+	 */
+	public function testInvalidByteRangesReturnErrors()
+	{
+		$data = file_get_contents($this->testFile);
+		$archive = new TestArchiveReader;
+
+		// Common checks
+		$range = array(-1, -2);
+		$regex = '/Start.*end.*positive/';
+		$this->assertFalse($archive->setData($data, false, $range));
+		$this->assertRegExp($regex, $archive->error);
+		$this->assertFalse($archive->open($this->testFile, false, $range));
+		$this->assertRegExp($regex, $archive->error);
+
+		$range = array(1.5, 3);
+		$regex = '/Start.*end.*integer/';
+		$this->assertFalse($archive->setData($data, false, $range));
+		$this->assertRegExp($regex, $archive->error);
+		$this->assertFalse($archive->open($this->testFile, false, $range));
+		$this->assertRegExp($regex, $archive->error);
+
+		$range = array(2, 1);
+		$regex = '/End.*higher/';
+		$this->assertFalse($archive->setData($data, false, $range));
+		$this->assertRegExp($regex, $archive->error);
+		$this->assertFalse($archive->open($this->testFile, false, $range));
+		$this->assertRegExp($regex, $archive->error);
+
+		// Setting data
+		$archive->setMaxReadBytes(100);
+
+		$range = array(1, 105);
+		$regex = '/range.*invalid/';
+		$this->assertFalse($archive->setData($data, false, $range));
+		$this->assertRegExp($regex, $archive->error);
+
+		$range = array(101, 105);
+		$this->assertFalse($archive->setData($data, false, $range));
+		$this->assertRegExp($regex, $archive->error);
+
+		// Opening file
+		$range = array(0, filesize($this->testFile));
+		$this->assertFalse($archive->open($this->testFile, false, $range));
+		$this->assertRegExp($regex, $archive->error);
 	}
 
 } // End ArchiveReaderTest
@@ -75,7 +260,7 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 class TestArchiveReader extends ArchiveReader
 {
 	// Abstract method implementations
-	public function getSummary() 
+	public function getSummary()
 	{
 		return array(
 			'fileSize' => $this->fileSize,
@@ -87,15 +272,39 @@ class TestArchiveReader extends ArchiveReader
 
 	protected function analyze()
 	{
+		while ($this->offset < $this->length) try {
+			$this->read($this->readSize);
+		} catch(Exception $e) {
+			break;
+		}
 		$this->analyzed = true;
 		return true;
 	}
 
 	// Added for test convenience
 	public $analyzed = false;
+	public $readSize = 3;
 
-	public function getHandle()
+	// Made public for test convenience
+	public $handle;
+	public $data = true;
+	public $offset = 0;
+	public $length = 0;
+	public $start = 0;
+	public $end = 0;
+
+	public function seek($pos)
 	{
-		return $this->handle;
+		parent::seek($pos);
+	}
+
+	public function read($num)
+	{
+		return parent::read($num);
+	}
+
+	public function tell()
+	{
+		return parent::tell();
 	}
 }

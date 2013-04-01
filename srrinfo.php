@@ -44,7 +44,7 @@ require_once dirname(__FILE__).'/rarinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.5
+ * @version    1.6
  */
 class SrrInfo extends RarInfo
 {
@@ -102,10 +102,12 @@ class SrrInfo extends RarInfo
 	 *
 	 * @return  void
 	 */
-	public function __construct()
+	public function __construct($file=null, $isFragment=false, array $range=null)
 	{
 		// Merge the SRR and RAR block names
 		$this->blockNames = $this->srrBlockNames + $this->blockNames;
+
+		parent::__construct($file, $isFragment=false, $range);
 	}
 
 	/**
@@ -208,8 +210,7 @@ class SrrInfo extends RarInfo
 		$this->seek($startPos);
 
 		// Analyze all valid blocks
-		$dataSize = $this->data ? $this->dataSize : $this->fileSize;
-		while ($this->offset < $dataSize) try {
+		while ($this->offset < $this->length) try {
 
 			// Get the next block header
 			$block = $this->getNextBlock();
