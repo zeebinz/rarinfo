@@ -460,7 +460,25 @@ class RarInfo extends ArchiveReader
 			return false;
 		}
 
-		return false;
+	/**
+	 * File header CRC checks can produce false positives, so this is a
+	 * last-ditch attempt to verify that this is actually a valid header.
+	 *
+	 * @param   array    $block  the block to sanity check
+	 * @param   integer  $limit  the minimum failure threshold
+	 * @return  boolean  false if the sanity check fails
+	 */
+	protected function sanityCheckFileHeader($block, $limit=3)
+	{
+		$fail  = 0;
+		$fail += ($block['host_os'] > 5);
+		$fail += ($block['method'] > 0x35);
+		$fail += ($block['unp_ver'] > 5);
+		$fail += ($block['name_size'] > $this->maxFilenameLength);
+		$fail += ($block['pack_size'] > PHP_INT_MAX);
+		$fail += (isset($block['salt']) && !isset($block['has_password']));
+
+		return $fail < $limit;
 	}
 
 	/**
