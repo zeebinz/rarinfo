@@ -51,7 +51,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.3
+ * @version    1.4
  */
 class ZipInfo extends ArchiveReader
 {
@@ -232,6 +232,7 @@ class ZipInfo extends ArchiveReader
 			'zip_file' => $this->file,
 			'file_size' => $this->fileSize,
 			'data_size' => $this->dataSize,
+			'use_range' => "{$this->start}-{$this->end}",
 			'file_count' => $this->fileCount,
 		);
 		if ($full) {
@@ -306,29 +307,17 @@ class ZipInfo extends ArchiveReader
 	public function getFileData($filename)
 	{
 		// Check that records are stored and data source is available
-		if (empty($this->records) || ($this->data == null && $this->handle == null)) {
+		if (empty($this->records) || ($this->data == '' && $this->handle == null)) {
 			return false;
 		}
 
-		// Get the file data
-		foreach ($this->records AS $record) {
-			if ($record['type'] == self::RECORD_LOCAL_FILE && $record['file_name'] == $filename) {
-				$start = $record['offset'] + 30 + $record['file_name_length'] + $record['extra_length'];
-				try {
-					$this->seek($start);
-					return $this->read($record['uncompressed_size']);
-				} catch (Exception $e) {
-					if (!$this->isFragment) {
-						$this->error = 'File data is incomplete or unavailable';
-						return false;
-					}
-					$this->seek($start);
-					return $this->read($this->length - $this->offset);
-				}
-			}
+		// Get the absolute start/end positions
+		if (!($range = $this->getFileRangeInfo($filename))) {
+			$this->error = "Could not find file info for: ({$filename})";
+			return false;
 		}
 
-		return false;
+		return $this->getRange($range);
 	}
 
 	/**
@@ -337,36 +326,22 @@ class ZipInfo extends ArchiveReader
 	 *
 	 * @param   string   $filename     name of the file to extract
 	 * @param   string   $destination  full path of the file to create
-	 * @return  boolean  true on success
+	 * @return  integer|boolean  number of bytes saved or false on error
 	 */
 	public function saveFileData($filename, $destination)
 	{
 		// Check that records are stored and data source is available
-		if (empty($this->records) || ($this->data == null && $this->handle == null)) {
+		if (empty($this->records) || ($this->data == '' && $this->handle == null)) {
 			return false;
 		}
 
-		// Write the data to disk
-		foreach ($this->records AS $record) {
-			if ($record['type'] == self::RECORD_LOCAL_FILE && $record['file_name'] == $filename) {
-				$fh = fopen($destination, 'wb');
-				try {
-					$this->seek($record['offset'] + 30 + $record['file_name_length'] + $record['extra_length']);
-					$mlen = min($this->length, $this->offset + $record['uncompressed_size']);
-					$rlen = min($this->length, $record['uncompressed_size']);
-					while ($this->offset < $mlen) {
-						fwrite($fh, $this->read(min(1024, $rlen)));
-					}
-					fclose($fh);
-				} catch (Exception $e) {
-					fclose($fh);
-					if ($this->error) {break;}
-				}
-				return true;
-			}
+		// Get the absolute start/end positions
+		if (!($range = $this->getFileRangeInfo($filename))) {
+			$this->error = "Could not find file info for: ({$filename})";
+			return false;
 		}
 
-		return false;
+		return $this->saveRange($range, $destination);
 	}
 
 	/**
@@ -391,9 +366,36 @@ class ZipInfo extends ArchiveReader
 			'compressed' => (int) ($record['method'] > 0),
 			'next_offset' => $record['next_offset'],
 		);
-		if (!empty($record['is_dir'])) {$ret['is_dir'] = 1;}
+		if (!empty($record['is_dir'])) {
+			$ret['is_dir'] = 1;
+		} elseif ($record['type'] == self::RECORD_LOCAL_FILE) {
+			$start = $this->start + $record['offset'] + 30 + $record['file_name_length'] + $record['extra_length'];
+			$end   = min($this->end, $start + $record['uncompressed_size'] - 1);
+			$ret['range'] = "{$start}-{$end}";
+		}
 
 		return $ret;
+	}
+
+	/**
+	 * Returns the absolute start and end positions for the given filename in the
+	 * current file/data.
+	 *
+	 * @param   string  $filename  the filename to search
+	 * @return  array|boolean  the range info or false on error
+	 */
+	protected function getFileRangeInfo($filename)
+	{
+		foreach ($this->records AS $record) {
+			if ($record['type'] == self::RECORD_LOCAL_FILE && empty($record['is_dir'])
+			    && $record['file_name'] == $filename
+			) {
+				$start = $this->start + $record['offset'] + 30 + $record['file_name_length'] + $record['extra_length'];
+				$end   = min($this->end, $start + $record['compressed_size'] - 1);
+				return array($start, $end);
+			}
+		}
+		return false;
 	}
 
 	/**

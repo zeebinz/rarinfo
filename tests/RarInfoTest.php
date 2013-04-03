@@ -91,15 +91,33 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 	public function testExtractsFileDataPackedWithStoreMethod()
 	{
 		$rar = new RarInfo;
-		$rar->open($this->fixturesDir.'/store_method.rar');
+		$rarfile = $this->fixturesDir.'/store_method.rar';
 
+		// With default byte range
+		$rar->open($rarfile);
 		$files = $rar->getFileList();
 		$this->assertCount(1, $files);
 		$this->assertSame(0, $files[0]['compressed']);
-
 		$data = $rar->getFileData($files[0]['name']);
 		$this->assertSame($files[0]['size'], strlen($data));
 		$this->assertStringStartsWith('At each generation,', $data);
+		$this->assertStringEndsWith('children, y, is', $data);
+
+		// With range, all data available
+		$rar->open($rarfile, true, array(1, filesize($rarfile) - 5));
+		$files = $rar->getFileList();
+		$data = $rar->getFileData($files[0]['name']);
+		$this->assertSame($files[0]['size'], strlen($data));
+		$this->assertStringStartsWith('At each generation,', $data);
+		$this->assertStringEndsWith('children, y, is', $data);
+
+		// With range, partial data available
+		$rar->open($rarfile, true, array(1, filesize($rarfile) - 10));
+		$files = $rar->getFileList();
+		$data = $rar->getFileData($files[0]['name']);
+		$this->assertSame($files[0]['size'] - 2, strlen($data));
+		$this->assertStringStartsWith('At each generation,', $data);
+		$this->assertStringEndsWith('children, y, ', $data);
 	}
 
 } // End RarInfoTest

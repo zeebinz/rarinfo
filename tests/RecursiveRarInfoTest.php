@@ -96,4 +96,33 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertContains('archive is compressed', $files[14]['error']);
 	}
 
+	/**
+	 * If the archive files are packed with the Store method, we should just be able
+	 * to extract the file data and use it as is, and we should be able to retrieve
+	 * the contents of embedded files via chaining or absolute byte ranges.
+	 *
+	 * @depends testListsAllArchiveFilesRecursively
+	 */
+	public function testExtractsEmbeddedFileDataPackedWithStoreMethod()
+	{
+		$rar = new RecursiveRarInfo;
+		$rar->open($this->fixturesDir.'/embedded_rars.rar');
+		$content = 'file content';
+
+		$files = $rar->getArchiveFileList(true);
+		$this->assertArrayHasKey(12, $files);
+		$file = $files[12];
+		$this->assertSame('file.txt', $file['name']);
+		$this->assertSame('main > commented.rar', $file['source']);
+		$this->assertSame(0, $file['compressed']);
+
+		// Via chaining
+		$this->assertSame($content, $rar->getArchive('commented.rar')->getFileData('file.txt'));
+
+		// Via byte range
+		$range = explode('-', $file['range']);
+		$this->assertSame($content, $rar->getRange($range));
+		$this->assertSame($content, $rar->getArchive('commented.rar')->getRange($range));
+	}
+
 } // End RecursiveRarInfoTest

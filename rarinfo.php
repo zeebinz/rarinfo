@@ -52,7 +52,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    3.8
+ * @version    3.9
  */
 class RarInfo extends ArchiveReader
 {
@@ -267,13 +267,13 @@ class RarInfo extends ArchiveReader
 
 		// Build the block list
 		$ret = array();
-		foreach ($this->blocks AS $block) {
+		foreach ($this->blocks as $block) {
 			$b = array();
 			$b['type'] = isset($this->blockNames[$block['head_type']]) ? $this->blockNames[$block['head_type']] : 'Unknown';
 			if ($block['head_type'] == self::BLOCK_SUB && isset($this->subblockNames[$block['file_name']])) {
 				$b['sub_type'] = $this->subblockNames[$block['file_name']];
 			}
-			if ($asHex) foreach ($block AS $key=>$val) {
+			if ($asHex) foreach ($block as $key=>$val) {
 				$b[$key] = is_numeric($val) ? dechex($val) : $val;
 			} else {
 				$b += $block;
@@ -301,7 +301,7 @@ class RarInfo extends ArchiveReader
 
 		// Build the file list
 		$ret = array();
-		foreach ($this->blocks AS $block) {
+		foreach ($this->blocks as $block) {
 			if ($block['head_type'] == self::BLOCK_FILE) {
 				if ($skipDirs && !empty($block['is_dir'])) {continue;}
 				$ret[] = $this->getFileBlockSummary($block);
@@ -312,77 +312,48 @@ class RarInfo extends ArchiveReader
 	}
 
 	/**
-	 * Extracts the data for the given filename. Note that this is only useful
-	 * if the file has been packed with the Store method, i.e. isn't compressed.
+	 * Extracts the data for the given filename. Note that this is only useful if
+	 * the file isn't compressed (Store method only supported).
 	 *
 	 * @param   string  $filename  name of the file to extract
-	 * @return  mixed   file data, or false if no file blocks available
+	 * @return  string|boolean  file data, or false on error
 	 */
 	public function getFileData($filename)
 	{
 		// Check that blocks are stored and data source is available
-		if (empty($this->blocks) || ($this->data == null && $this->handle == null)) {
+		if (empty($this->blocks) || ($this->data == '' && $this->handle == null))
+			return false;
+
+		// Get the absolute start/end positions
+		if (!($range = $this->getFileRangeInfo($filename))) {
+			$this->error = "Could not find file info for: ({$filename})";
 			return false;
 		}
 
-		// Get the file data
-		foreach ($this->blocks AS $block) {
-			if ($block['head_type'] == self::BLOCK_FILE && $block['file_name'] == $filename) {
-				$start = $block['offset'] + $block['head_size'];
-				try {
-					$this->seek($start);
-					return $this->read($block['next_offset'] - $this->offset);
-				} catch (Exception $e) {
-					if (!$this->isFragment) {
-						$this->error = 'File data is incomplete or unavailable';
-						return false;
-					}
-					$this->seek($start);
-					return $this->read($this->length - $this->offset);
-				}
-			}
-		}
-
-		return false;
+		return $this->getRange($range);
 	}
 
 	/**
-	 * Saves the data for the given filename to the given destination. Note that
-	 * this is only useful if the file has been packed with the Store method, i.e.
-	 * isn't compressed.
+	 * Saves the data for the given filename to the given destination. This is
+	 * only useful if the file isn't compressed (Store method only supported).
 	 *
 	 * @param   string   $filename     name of the file to extract
 	 * @param   string   $destination  full path of the file to create
-	 * @return  boolean  true on success
+	 * @return  integer|boolean  number of bytes saved or false on error
 	 */
 	public function saveFileData($filename, $destination)
 	{
 		// Check that blocks are stored and data source is available
-		if (empty($this->blocks) || ($this->data == null && $this->handle == null)) {
+		if (empty($this->blocks) || ($this->data == '' && $this->handle == null))
+			return false;
+
+		// Get the absolute start/end positions
+		if (!($range = $this->getFileRangeInfo($filename))) {
+			$this->error = "Could not find file info for: ({$filename})";
 			return false;
 		}
 
-		// Write the data to disk
-		foreach ($this->blocks AS $block) {
-			if ($block['head_type'] == self::BLOCK_FILE && $block['file_name'] == $filename) {
-				$fh = fopen($destination, 'wb');
-				try {
-					$this->seek($block['offset'] + $block['head_size']);
-					$mlen = min($this->length, $block['next_offset']);
-					$rlen = min($this->length, $block['next_offset'] - $this->offset);
-					while ($this->offset < $mlen) {
-						fwrite($fh, $this->read(min(1024, $rlen)));
-					}
-					fclose($fh);
-				} catch (Exception $e) {
-					fclose($fh);
-					if ($this->error) {break;}
-				}
-				return true;
-			}
-		}
-
-		return false;
+		return $this->saveRange($range, $destination);
 	}
 
 	/**
@@ -416,10 +387,39 @@ class RarInfo extends ArchiveReader
 			'compressed' => (int) ($block['method'] != self::METHOD_STORE),
 			'next_offset' => $block['next_offset'],
 		);
-		if (!empty($block['is_dir'])) {$ret['is_dir'] = 1;}
-		if (!empty($block['split_after']) || !empty($block['split_before'])) {$ret['split'] = 1;}
+		if (!empty($block['is_dir'])) {
+			$ret['is_dir'] = 1;
+		} else {
+			$start = $this->start + $block['offset'] + $block['head_size'];
+			$end   = min($this->end, $start + $block['pack_size'] - 1);
+			$ret['range'] = "{$start}-{$end}";
+		}
+		if (!empty($block['split_after']) || !empty($block['split_before'])) {
+			$ret['split'] = 1;
+		}
 
 		return $ret;
+	}
+
+	/**
+	 * Returns the absolute start and end positions for the given filename in the
+	 * current file/data.
+	 *
+	 * @param   string  $filename  the filename to search
+	 * @return  array|boolean  the range info or false on error
+	 */
+	protected function getFileRangeInfo($filename)
+	{
+		foreach ($this->blocks as $block) {
+			if ($block['head_type'] == self::BLOCK_FILE && empty($block['is_dir'])
+			    && $block['file_name'] == $filename
+			) {
+				$start = $this->start + $block['offset'] + $block['head_size'];
+				$end   = min($this->end, $start + $block['pack_size'] - 1);
+				return array($start, $end);
+			}
+		}
+		return false;
 	}
 
 	/**

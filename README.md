@@ -21,6 +21,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 3.9 Improved methods for extracting file contents
 - 3.8 Added support for byte ranges, better handling of RAR fragments
 - 3.7 Added more info to Archive block output
 - 3.6 Improved handling of Marker blocks, with new test files
@@ -61,7 +62,7 @@ Class for handling unicode filenames in RAR archive listings.
 - 1.0 Initial release
 
 RecursiveRarInfo (extends RarInfo, in rrarinfo.php)
--------------------------------
+---------------------------------------------------
 Example class for recursively inspecting the contents of RAR archives packed
 within other RAR archives.
 
@@ -110,6 +111,7 @@ ZipInfo (extends ArchiveReader)
 --------------------------------
 Class for inspecting the contents of ZIP archives.
 
+- 1.4 Improved methods for extracting file contents
 - 1.3 Added support for byte ranges
 - 1.2 Improved property initialization
 - 1.1 Fixed filecount when CDR is missing
