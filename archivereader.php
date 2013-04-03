@@ -5,7 +5,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.7
+ * @version    1.8
  */
 abstract class ArchiveReader
 {
@@ -160,7 +160,7 @@ abstract class ArchiveReader
 	{
 		$this->reset();
 		$this->isFragment = $isFragment;
-		if (!$this->range($range)) {return false;}
+		if (!$this->setRange($range)) {return false;}
 
 		if (!$file || !($archive = realpath($file)) || !is_file($archive)) {
 			$this->error = "File does not exist ($file)";
@@ -174,11 +174,7 @@ abstract class ArchiveReader
 		$this->handle = fopen($archive, 'rb');
 		if (!$this->end) {$this->end = $this->fileSize - 1;}
 		$this->length = $this->end - $this->start + 1;
-
-		if ($this->end >= $this->fileSize || $this->start >= $this->fileSize || $this->length < 1) {
-			$this->error = "Byte range ({$this->start} - {$this->end}) is invalid";
-			return false;
-		}
+		if (!$this->checkRange()) {return false;}
 
 		$this->rewind();
 		return $this->analyze();
@@ -199,7 +195,7 @@ abstract class ArchiveReader
 	{
 		$this->reset();
 		$this->isFragment = $isFragment;
-		if (!$this->range($range)) {return false;}
+		if (!$this->setRange($range)) {return false;}
 
 		if (strlen($data) == 0) {
 			$this->error = 'No data was passed, nothing to analyze';
@@ -211,11 +207,7 @@ abstract class ArchiveReader
 		$this->dataSize = strlen($this->data);
 		if (!$this->end) {$this->end = $this->dataSize - 1;}
 		$this->length = $this->end - $this->start + 1;
-
-		if ($this->end >= $this->dataSize || $this->start >= $this->dataSize || $this->length < 1) {
-			$this->error = "Byte range ({$this->start} - {$this->end}) is invalid";
-			return false;
-		}
+		if (!$this->checkRange()) {return false;}
 
 		$this->rewind();
 		return $this->analyze();
@@ -249,29 +241,63 @@ abstract class ArchiveReader
 	}
 
 	/**
-	 * Sets the absolute start and end positions in the file/data to be analyzed
-	 * (zero-indexed and inclusive of the end byte).
+	 * Returns data within the given absolute byte range of the current file/data.
 	 *
-	 * @param   array    $range  the start and end byte positions
-	 * @return  boolean  false if ranges are invalid
+	 * @param   array  $range   the absolute start and end positions
+	 * @return  string|boolean  the requested data or false on error
 	 */
-	protected function range(array $range=null)
+	public function getRange(array $range)
 	{
-		$start = isset($range[0]) ? $range[0] : 0;
-		$end   = isset($range[1]) ? $range[1] : 0;
-
-		if ($start < 0 || $end < 0 || !is_int($start) || !is_int($end)) {
-			$this->error = "Start ($start) and end ($end) points must be positive integers";
+		// Check that the requested range is valid
+		$original = array($this->start, $this->end, $this->length);
+		if (!$this->setRange($range)) {
+			list($this->start, $this->end, $this->length) = $original;
 			return false;
 		}
-		if ($end < $start) {
-			$this->error = "End point ($end) must be higher than start point ($start)";
+
+		// Get the data
+		$this->seek(0);
+		$data = $this->read($this->length);
+
+		// Restore the original range
+		list($this->start, $this->end, $this->length) = $original;
+
+		return $data;
+	}
+
+	/**
+	 * Saves data within the given absolute byte range of the current file/data to
+	 * the destination file.
+	 *
+	 * @param   array   $range        the absolute start and end positions
+	 * @param   string  $destination  full path of the file to create
+	 * @return  integer/boolean  number of bytes written or false on error
+	 */
+	public function saveRange(array $range, $destination)
+	{
+		// Check that the requested range is valid
+		$original = array($this->start, $this->end, $this->length);
+		if (!$this->setRange($range)) {
+			list($this->start, $this->end, $this->length) = $original;
 			return false;
 		}
-		$this->start = $start;
-		$this->end = $end;
 
-		return true;
+		// Write the buffered data to disk
+		$this->seek(0);
+		$fh = fopen($destination, 'wb');
+		$rlen = $this->length;
+		$written = 0;
+		while ($this->offset < $this->length) {
+			$data = $this->read(min(1024, $rlen));
+			$rlen -= strlen($data);
+			$written += fwrite($fh, $data);
+		}
+		fclose($fh);
+
+		// Restore the original range
+		list($this->start, $this->end, $this->length) = $original;
+
+		return $written;
 	}
 
 	/**
@@ -375,6 +401,51 @@ abstract class ArchiveReader
 	abstract protected function analyze();
 
 	/**
+	 * Sets the absolute start and end positions in the file/data to be analyzed
+	 * (zero-indexed and inclusive of the end byte).
+	 *
+	 * @param   array    $range  the start and end byte positions
+	 * @return  boolean  false if ranges are invalid
+	 */
+	protected function setRange(array $range=null)
+	{
+		$start = isset($range[0]) ? (int) $range[0] : 0;
+		$end   = isset($range[1]) ? (int) $range[1] : 0;
+
+		if ($start != $range[0] || $end != $range[1] || $start < 0 || $end < 0) {
+			$this->error = "Start ($start) and end ($end) points must be positive integers";
+			return false;
+		}
+		if ($end < $start) {
+			$this->error = "End point ($end) must be higher than start point ($start)";
+			return false;
+		}
+		$this->start = $start;
+		$this->end = $end;
+		$this->length = $end - $start + 1;
+
+		return $this->checkRange();
+	}
+
+	/**
+	 * Determines whether the currently set start and end ranges are within the
+	 * bounds of the available data, and if not sets an error message.
+	 *
+	 * @return  boolean
+	 */
+	protected function checkRange()
+	{
+		$mlen = $this->data ? $this->dataSize : $this->fileSize;
+		if ($mlen && ($this->end >= $mlen || $this->start >= $mlen || $this->length < 1)) {
+			$this->error = "Byte range ({$this->start}-{$this->end}) is invalid";
+			return false;
+		}
+		$this->error = '';
+
+		return true;
+	}
+
+	/**
 	 * Reads the given number of bytes from the archive file/data and moves the
 	 * offset pointer forward.
 	 *
@@ -390,7 +461,7 @@ abstract class ArchiveReader
 		// Check that enough data is available
 		$newPos = $this->offset + $num;
 		if ($num < 1 || $newPos > $this->length) {
-			throw new InvalidArgumentException("Can't read {$num} bytes from offset {$this->offset}");
+			throw new InvalidArgumentException("Could not read {$num} bytes from offset {$this->offset}");
 		}
 
 		// Read the requested bytes
@@ -424,11 +495,13 @@ abstract class ArchiveReader
 	 * @param   integer  $pos  new pointer position
 	 * @return  void
 	 * @throws  RuntimeException
+	 * @throws  InvalidArgumentException
 	 */
 	protected function seek($pos)
 	{
 		if ($pos > $this->length || $pos < 0) {
-			$pos = $this->length; // set to EOF
+			$this->offset = $this->length; // set to EOF
+			throw new InvalidArgumentException("Could not seek to {$pos} (max: {$this->length})");
 		}
 
 		if ($this->file && is_resource($this->handle)) {

@@ -46,10 +46,6 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(3, $archive->offset);
 		$archive->seek($archive->end);
 		$this->assertSame($archive->end, $archive->offset);
-		$archive->seek($archive->end + 5);
-		$this->assertSame($archive->end + 1, $archive->offset);
-		$archive->seek(-1);
-		$this->assertSame($archive->end + 1, $archive->offset);
 		$archive->seek(0);
 		$this->assertSame(0, $archive->offset);
 
@@ -81,6 +77,14 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$this->assertSame($data, $read);
 
 		// Out of bounds
+		try {
+			$archive->seek($archive->end + 5);
+		} catch (InvalidArgumentException $e) {}
+		$this->assertSame($archive->end + 1, $archive->offset);
+		try {
+			$archive->seek(-1);
+		} catch (InvalidArgumentException $e) {}
+		$this->assertSame($archive->end + 1, $archive->offset);
 		try {
 			$archive->seek(0);
 			$read = $archive->read($length + 1);
@@ -203,12 +207,11 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 	}
 
 	/**
-	 * We shouldn't be able to set ranges that are out of the bounds of any
-	 * set data or opened file, and we should handle these as errors rather
-	 * than throw exceptions.
+	 * We shouldn't be able to set ranges that are out of the bounds of any set
+	 * data or opened file, and we should handle these as errors rather than throw
+	 * exceptions.
 	 *
-	 * @depends testHandlesFileStreams
-	 * @depends testHandlesDataFromMemory
+	 * @depends testByteRangesCanBeSpecifiedForAnalysis
 	 */
 	public function testInvalidByteRangesReturnErrors()
 	{
@@ -231,7 +234,7 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$this->assertRegExp($regex, $archive->error);
 
 		$range = array(2, 1);
-		$regex = '/End.*higher/';
+		$regex = '/End.*must be higher than start/';
 		$this->assertFalse($archive->setData($data, false, $range));
 		$this->assertRegExp($regex, $archive->error);
 		$this->assertFalse($archive->open($this->testFile, false, $range));
@@ -241,7 +244,7 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$archive->setMaxReadBytes(100);
 
 		$range = array(1, 105);
-		$regex = '/range.*invalid/';
+		$regex = '/range.*is invalid/';
 		$this->assertFalse($archive->setData($data, false, $range));
 		$this->assertRegExp($regex, $archive->error);
 
@@ -253,6 +256,36 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$range = array(0, filesize($this->testFile));
 		$this->assertFalse($archive->open($this->testFile, false, $range));
 		$this->assertRegExp($regex, $archive->error);
+	}
+
+	/**
+	 * We should be able to retrieve data from the file/data source using any
+	 * absolute byte range, ignoring any analysis range that has been set.
+	 *
+	 * @depends testInvalidByteRangesReturnErrors
+	 */
+	public function testAnyDataCanBeFetchedByByteRange()
+	{
+		$file = $this->fixturesDir.'/rar/commented.rar';
+		$data = file_get_contents($file);
+		$content = 'file content';
+		$range = array(146, 157);
+		$archive = new TestArchiveReader;
+
+		// Within bounds
+		$archive->open($file);
+		$this->assertSame($content, $archive->getRange($range));
+		$archive->setData($data);
+		$this->assertSame($content, $archive->getRange($range));
+		$archive->open($file, false, array(0, 1));
+		$this->assertSame($content, $archive->getRange($range));
+		$archive->setData($data, false, array(0, 1));
+		$this->assertSame($content, $archive->getRange($range));
+
+		// Out of bounds
+		$archive->open($file);
+		$archive->getRange(array(0, filesize($file)));
+		$this->assertRegExp('/range.*is invalid/', $archive->error);
 	}
 
 } // End ArchiveReaderTest
