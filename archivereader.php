@@ -499,10 +499,8 @@ abstract class ArchiveReader
 	 */
 	protected function seek($pos)
 	{
-		if ($pos > $this->length || $pos < 0) {
-			$this->offset = $this->length; // set to EOF
+		if ($pos > $this->length || $pos < 0)
 			throw new InvalidArgumentException("Could not seek to {$pos} (max: {$this->length})");
-		}
 
 		if ($this->file && is_resource($this->handle)) {
 			$max = PHP_INT_MAX;

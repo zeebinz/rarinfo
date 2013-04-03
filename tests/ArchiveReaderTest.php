@@ -25,8 +25,7 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 	/**
 	 * We need to be able to seek accurately through the available data and check
 	 * that read requests are not out of bounds. Trying to read past the last byte
-	 * should throw an exception, trying to seek out of bounds should set the
-	 * internal pointer to EOF.
+	 * or seeking out of bounds should throw an exception.
 	 */
 	public function testHandlesBasicSeekingAndReading()
 	{
@@ -77,22 +76,22 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$this->assertSame($data, $read);
 
 		// Out of bounds
+		$archive->seek(0);
 		try {
 			$archive->seek($archive->end + 5);
 		} catch (InvalidArgumentException $e) {}
-		$this->assertSame($archive->end + 1, $archive->offset);
+		$this->assertSame(0, $archive->offset);
 		try {
 			$archive->seek(-1);
 		} catch (InvalidArgumentException $e) {}
-		$this->assertSame($archive->end + 1, $archive->offset);
+		$this->assertSame(0, $archive->offset);
 		try {
-			$archive->seek(0);
-			$read = $archive->read($length + 1);
+			$archive->read($length + 1);
 		} catch (InvalidArgumentException $e) {}
 		$this->assertSame(0, $archive->offset);
 		try {
 			$archive->seek($archive->end + 1);
-			$read = $archive->read(1);
+			$archive->read(1);
 		} catch (InvalidArgumentException $e) {}
 		$this->assertSame($archive->end + 1, $archive->offset);
 		try {
