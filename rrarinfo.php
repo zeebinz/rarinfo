@@ -53,8 +53,8 @@ class RecursiveRarInfo extends RarInfo
 	 */
 	public function containsArchive()
 	{
-		$archives = $this->getArchiveList();
-		return !empty($archives);
+		$this->getArchiveList();
+		return !empty($this->archives);
 	}
 
 	/**
