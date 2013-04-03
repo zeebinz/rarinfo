@@ -85,6 +85,7 @@ Class for inspecting the contents of SRR files and reporting on the RAR files
 that they cover, as well as allowing extraction of any stored files that they
 might contain.
 
+- 1.7 Improved handling of invalid extraction requests
 - 1.6 Added support for byte ranges
 - 1.5 Improved handling of Marker blocks
 - 1.4 Improved Marker block searching
