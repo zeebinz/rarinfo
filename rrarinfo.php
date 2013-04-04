@@ -29,6 +29,11 @@ require_once dirname(__FILE__).'/rarinfo.php';
  *     if ($file['pass'] == true) {
  *       echo "File is passworded: {$file['name']} (in: {$file['source']})\n";
  *     }
+ *     if ($file['compressed'] == false) {
+ *       echo "Extracting uncompressed file: {$file['name']} from: {$file['source']}\n";
+ *       $rar->saveFileData($file['name'], "./dir/{$file['name']}", $file['source']);
+ *       // or $data = $rar->getFileData($file['name'], $file['source']);
+ *     }
  *   }
  *
  * </code>
@@ -36,7 +41,7 @@ require_once dirname(__FILE__).'/rarinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.0
+ * @version    1.1
  */
 class RecursiveRarInfo extends RarInfo
 {
@@ -193,6 +198,79 @@ class RecursiveRarInfo extends RarInfo
 			$summary['archives'] = $this->getArchiveList(true); // recursive
 		}
 		return $summary;
+	}
+
+	/**
+	 * Extracts the data for the given filename and optionally the archive source
+	 * (e.g. 'main' or 'main > child.rar', etc.).
+	 *
+	 * @param   string  $filename  name of the file to extract
+	 * @param   string  $source    archive source path of the file
+	 * @return  string|boolean  file data, or false on error
+	 */
+	public function getFileData($filename, $source=null)
+	{
+		// Check that blocks are stored and data source is available
+		if (empty($this->blocks) || ($this->data == '' && $this->handle == null))
+			return false;
+
+		// Get the absolute start/end positions
+		if (!($range = $this->getFileRangeInfo($filename, $source))) {
+			$in_source = $source ? " in: ({$source})" : '';
+			$this->error = "Could not find file info for: ({$filename}){$in_source}";
+			return false;
+		}
+
+		return $this->getRange($range);
+	}
+
+	/**
+	 * Saves the data for the given filename and optionally archive source path
+	 * to the given destination (e.g. 'main' or 'main > child.rar', etc.).
+	 *
+	 * @param   string  $filename     name of the file to extract
+	 * @param   string  $destination  full path of the file to create
+	 * @param   string  $source       archive source path of the file
+	 * @return  integer|boolean  number of bytes saved or false on error
+	 */
+	public function saveFileData($filename, $destination, $source=null)
+	{
+		// Check that blocks are stored and data source is available
+		if (empty($this->blocks) || ($this->data == '' && $this->handle == null))
+			return false;
+
+		// Get the absolute start/end positions
+		if (!($range = $this->getFileRangeInfo($filename, $source))) {
+			$in_source = $source ? " in: $source" : '';
+			$this->error = "Could not find file info for: ({$filename}{$in_source})";
+			return false;
+		}
+
+		return $this->saveRange($range, $destination);
+	}
+
+	/**
+	 * Returns the absolute start and end positions for the given filename and
+	 * optionally archive source in the current file/data.
+	 *
+	 * @param   string  $filename  the filename to search
+	 * @param   string  $source    archive source path of the file
+	 * @return  array|boolean  the range info or false on error
+	 */
+	protected function getFileRangeInfo($filename, $source=null)
+	{
+		if ($source == null)
+			return parent::getFileRangeInfo($filename);
+
+		// Get the range info from the archive file list
+		$source = (strpos($source, 'main') !== 0) ? 'main > '.$source : $source;
+		foreach ($this->getArchiveFileList(true) as $file) {
+			if ($file['name'] == $filename && $file['source'] == $source && empty($file['is_dir'])) {
+				return explode('-', $file['range']);
+			}
+		}
+
+		return false;
 	}
 
 	/**

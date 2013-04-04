@@ -99,7 +99,7 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 	/**
 	 * If the archive files are packed with the Store method, we should just be able
 	 * to extract the file data and use it as is, and we should be able to retrieve
-	 * the contents of embedded files via chaining.
+	 * the contents of embedded files via chaining or by specifying the source.
 	 *
 	 * @depends testListsAllArchiveFilesRecursively
 	 */
@@ -118,6 +118,10 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 
 		// Via chaining
 		$this->assertSame($content, $rar->getArchive('commented.rar')->getFileData('file.txt'));
+
+		// Via filename & source
+		$this->assertSame($content, $rar->getFileData('file.txt', $file['source']));
+		$this->assertSame($content, $rar->getFileData('file.txt', 'commented.rar'));
 	}
 
 } // End RecursiveRarInfoTest
