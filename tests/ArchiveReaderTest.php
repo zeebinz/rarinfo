@@ -222,22 +222,28 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$regex = '/Start.*end.*positive/';
 		$this->assertFalse($archive->setData($data, false, $range));
 		$this->assertRegExp($regex, $archive->error);
+		$this->assertEmpty($archive->data);
 		$this->assertFalse($archive->open($this->testFile, false, $range));
 		$this->assertRegExp($regex, $archive->error);
+		$this->assertNull($archive->handle);
 
 		$range = array(1.5, 3);
 		$regex = '/Start.*end.*integer/';
 		$this->assertFalse($archive->setData($data, false, $range));
 		$this->assertRegExp($regex, $archive->error);
+		$this->assertEmpty($archive->data);
 		$this->assertFalse($archive->open($this->testFile, false, $range));
 		$this->assertRegExp($regex, $archive->error);
+		$this->assertNull($archive->handle);
 
 		$range = array(2, 1);
 		$regex = '/End.*must be higher than start/';
 		$this->assertFalse($archive->setData($data, false, $range));
 		$this->assertRegExp($regex, $archive->error);
+		$this->assertEmpty($archive->data);
 		$this->assertFalse($archive->open($this->testFile, false, $range));
 		$this->assertRegExp($regex, $archive->error);
+		$this->assertNull($archive->handle);
 
 		// Setting data
 		$archive->setMaxReadBytes(100);
@@ -246,15 +252,18 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$regex = '/range.*is invalid/';
 		$this->assertFalse($archive->setData($data, false, $range));
 		$this->assertRegExp($regex, $archive->error);
+		$this->assertEmpty($archive->data);
 
 		$range = array(101, 105);
 		$this->assertFalse($archive->setData($data, false, $range));
 		$this->assertRegExp($regex, $archive->error);
+		$this->assertEmpty($archive->data);
 
 		// Opening file
 		$range = array(0, filesize($this->testFile));
 		$this->assertFalse($archive->open($this->testFile, false, $range));
 		$this->assertRegExp($regex, $archive->error);
+		$this->assertNull($archive->handle);
 	}
 
 	/**
@@ -319,7 +328,7 @@ class TestArchiveReader extends ArchiveReader
 
 	// Made public for test convenience
 	public $handle;
-	public $data = true;
+	public $data = '';
 	public $offset = 0;
 	public $length = 0;
 	public $start = 0;

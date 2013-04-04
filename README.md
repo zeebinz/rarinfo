@@ -6,6 +6,7 @@ ArchiveReader
 Abstract base class for the various file inspectors that defines the basic API
 and implements common methods for file/data handling.
 
+- 1.9 Improved range checks
 - 1.8 Added methods for getting & saving file data by range
 - 1.7 Added support for setting analysis byte ranges, improved handling of
       archive file fragments, added default constructor, and misc fixes.

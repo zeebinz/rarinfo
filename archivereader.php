@@ -5,7 +5,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.8
+ * @version    1.9
  */
 abstract class ArchiveReader
 {
@@ -169,14 +169,13 @@ abstract class ArchiveReader
 
 		$this->file = $archive;
 		$this->fileSize = self::getFileSize($archive);
+		if (!$this->end) {$this->end = $this->fileSize - 1;}
+		if (!$this->checkRange()) {return false;}
 
 		// Open the file handle
 		$this->handle = fopen($archive, 'rb');
-		if (!$this->end) {$this->end = $this->fileSize - 1;}
-		$this->length = $this->end - $this->start + 1;
-		if (!$this->checkRange()) {return false;}
-
 		$this->rewind();
+
 		return $this->analyze();
 	}
 
@@ -197,17 +196,17 @@ abstract class ArchiveReader
 		$this->isFragment = $isFragment;
 		if (!$this->setRange($range)) {return false;}
 
-		if (strlen($data) == 0) {
+		if (($dsize = strlen($data)) == 0) {
 			$this->error = 'No data was passed, nothing to analyze';
 			return false;
 		}
 
 		// Store the data locally up to max bytes
-		$this->data = (strlen($data) > $this->maxReadBytes) ? substr($data, 0, $this->maxReadBytes) : $data;
-		$this->dataSize = strlen($this->data);
+		$data = ($dsize > $this->maxReadBytes) ? substr($data, 0, $this->maxReadBytes) : $data;
+		$this->dataSize = strlen($data);
 		if (!$this->end) {$this->end = $this->dataSize - 1;}
-		$this->length = $this->end - $this->start + 1;
 		if (!$this->checkRange()) {return false;}
+		$this->data = $data;
 
 		$this->rewind();
 		return $this->analyze();
@@ -422,7 +421,6 @@ abstract class ArchiveReader
 		}
 		$this->start = $start;
 		$this->end = $end;
-		$this->length = $end - $start + 1;
 
 		return $this->checkRange();
 	}
@@ -435,7 +433,8 @@ abstract class ArchiveReader
 	 */
 	protected function checkRange()
 	{
-		$mlen = $this->data ? $this->dataSize : $this->fileSize;
+		$this->length = $this->end - $this->start + 1;
+		$mlen = $this->file ? $this->fileSize : $this->dataSize;
 		if ($mlen && ($this->end >= $mlen || $this->start >= $mlen || $this->length < 1)) {
 			$this->error = "Byte range ({$this->start}-{$this->end}) is invalid";
 			return false;
