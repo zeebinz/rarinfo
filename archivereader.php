@@ -5,7 +5,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.9
+ * @version    2.0
  */
 abstract class ArchiveReader
 {
@@ -240,66 +240,6 @@ abstract class ArchiveReader
 	}
 
 	/**
-	 * Returns data within the given absolute byte range of the current file/data.
-	 *
-	 * @param   array  $range   the absolute start and end positions
-	 * @return  string|boolean  the requested data or false on error
-	 */
-	public function getRange(array $range)
-	{
-		// Check that the requested range is valid
-		$original = array($this->start, $this->end, $this->length);
-		if (!$this->setRange($range)) {
-			list($this->start, $this->end, $this->length) = $original;
-			return false;
-		}
-
-		// Get the data
-		$this->seek(0);
-		$data = $this->read($this->length);
-
-		// Restore the original range
-		list($this->start, $this->end, $this->length) = $original;
-
-		return $data;
-	}
-
-	/**
-	 * Saves data within the given absolute byte range of the current file/data to
-	 * the destination file.
-	 *
-	 * @param   array   $range        the absolute start and end positions
-	 * @param   string  $destination  full path of the file to create
-	 * @return  integer/boolean  number of bytes written or false on error
-	 */
-	public function saveRange(array $range, $destination)
-	{
-		// Check that the requested range is valid
-		$original = array($this->start, $this->end, $this->length);
-		if (!$this->setRange($range)) {
-			list($this->start, $this->end, $this->length) = $original;
-			return false;
-		}
-
-		// Write the buffered data to disk
-		$this->seek(0);
-		$fh = fopen($destination, 'wb');
-		$rlen = $this->length;
-		$written = 0;
-		while ($this->offset < $this->length) {
-			$data = $this->read(min(1024, $rlen));
-			$rlen -= strlen($data);
-			$written += fwrite($fh, $data);
-		}
-		fclose($fh);
-
-		// Restore the original range
-		list($this->start, $this->end, $this->length) = $original;
-
-		return $written;
-	}
-
-	/**
 	 * A full summary will be returned by default when converting the archive
 	 * object to a string, such as when echoing it.
 	 *
@@ -442,6 +382,66 @@ abstract class ArchiveReader
 		$this->error = '';
 
 		return true;
+	}
+
+	/**
+	 * Returns data within the given absolute byte range of the current file/data.
+	 *
+	 * @param   array  $range   the absolute start and end positions
+	 * @return  string|boolean  the requested data or false on error
+	 */
+	protected function getRange(array $range)
+	{
+		// Check that the requested range is valid
+		$original = array($this->start, $this->end, $this->length);
+		if (!$this->setRange($range)) {
+			list($this->start, $this->end, $this->length) = $original;
+			return false;
+		}
+
+		// Get the data
+		$this->seek(0);
+		$data = $this->read($this->length);
+
+		// Restore the original range
+		list($this->start, $this->end, $this->length) = $original;
+
+		return $data;
+	}
+
+	/**
+	 * Saves data within the given absolute byte range of the current file/data to
+	 * the destination file.
+	 *
+	 * @param   array   $range        the absolute start and end positions
+	 * @param   string  $destination  full path of the file to create
+	 * @return  integer/boolean  number of bytes written or false on error
+	 */
+	protected function saveRange(array $range, $destination)
+	{
+		// Check that the requested range is valid
+		$original = array($this->start, $this->end, $this->length);
+		if (!$this->setRange($range)) {
+			list($this->start, $this->end, $this->length) = $original;
+			return false;
+		}
+
+		// Write the buffered data to disk
+		$this->seek(0);
+		$fh = fopen($destination, 'wb');
+		$rlen = $this->length;
+		$written = 0;
+		while ($this->offset < $this->length) {
+			$data = $this->read(min(1024, $rlen));
+			$rlen -= strlen($data);
+			$written += fwrite($fh, $data);
+		}
+		fclose($fh);
+
+		// Restore the original range
+		list($this->start, $this->end, $this->length) = $original;
+
+		return $written;
 	}
 
 	/**

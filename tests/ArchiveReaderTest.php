@@ -348,4 +348,9 @@ class TestArchiveReader extends ArchiveReader
 	{
 		return parent::tell();
 	}
+
+	public function getRange(array $range)
+	{
+		return parent::getRange($range);
+	}
 }
