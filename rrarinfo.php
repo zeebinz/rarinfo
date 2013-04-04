@@ -13,7 +13,7 @@ require_once dirname(__FILE__).'/rarinfo.php';
  * <code>
  *
  *   // Load the RAR file or data
- *   $rar = new RecuriveRarInfo;
+ *   $rar = new RecursiveRarInfo;
  *   $rar->open('./foo.rar'); // or $rar->setData($data);
  *   if ($rar->error) {
  *     echo "Error: {$rar->error}\n";
@@ -89,7 +89,7 @@ class RecursiveRarInfo extends RarInfo
 	 * analyzed (initially without recursion). Calls to this method can also be
 	 * chained together to navigate the tree, e.g.:
 	 *
-	 *    $rar->getArchive('parent.rar')->getArchive('child.rar')->getSummary();
+	 *    $rar->getArchive('parent.rar')->getArchive('child.rar')->getFileList();
 	 *
 	 * @param   string   $filename  the embedded archive filename
 	 * @return  boolean|RecursiveRarInfo  false if an object can't be returned
@@ -102,7 +102,7 @@ class RecursiveRarInfo extends RarInfo
 		if (isset($this->archives[$filename]))
 			return $this->archives[$filename];
 
-		foreach ($this->blocks AS $block) {
+		foreach ($this->blocks as $block) {
 			if ($block['head_type'] == self::BLOCK_FILE && $block['file_name'] == $filename) {
 
 				// Create the new archive object
