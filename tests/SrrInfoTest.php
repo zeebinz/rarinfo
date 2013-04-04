@@ -123,6 +123,11 @@ class SrrInfoTest extends PHPUnit_Framework_TestCase
 		$srr = new SrrInfo;
 		$srr->open($this->fixturesDir.'/store_rr_solid_auth.part1.srr');
 		$this->assertFalse($srr->getFileData('users_manual4.00.txt'));
+		foreach ($srr->getFileList() as $vol) {
+			foreach ($vol['files'] as $file) {
+				$this->assertArrayNotHasKey('range', $file);
+			}
+		}
 	}
 
 } // End SrrInfoTest

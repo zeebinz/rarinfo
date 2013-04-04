@@ -52,7 +52,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    3.9
+ * @version    4.0
  */
 class RarInfo extends ArchiveReader
 {
@@ -389,7 +389,7 @@ class RarInfo extends ArchiveReader
 		);
 		if (!empty($block['is_dir'])) {
 			$ret['is_dir'] = 1;
-		} else {
+		} elseif (!in_array(self::BLOCK_FILE, $this->headersOnly['type'])) {
 			$start = $this->start + $block['offset'] + $block['head_size'];
 			$end   = min($this->end, $start + $block['pack_size'] - 1);
 			$ret['range'] = "{$start}-{$end}";
@@ -436,10 +436,11 @@ class RarInfo extends ArchiveReader
 		while ($this->offset < $length) try {
 
 			// Search for a BLOCK_FILE byte hint
-			if (ord($this->read(1)) != self::BLOCK_FILE || $this->offset < 3) {continue;}
-			$this->seek($this->offset - 3);
+			if (ord($this->read(1)) != self::BLOCK_FILE || $this->offset < 3)
+				continue;
 
 			// Run a File header CRC & sanity check
+			$this->seek($this->offset - 3);
 			$block = $this->getNextBlock();
 			if ($this->checkFileHeaderCRC($block)) {
 				$this->seek($block['offset'] + 7);
@@ -457,7 +458,7 @@ class RarInfo extends ArchiveReader
 			continue;
 
  		// No more readable data, or read error
-		} catch (Exception $e) {}
+		} catch (Exception $e) {break;}
 
 		return false;
 	}
