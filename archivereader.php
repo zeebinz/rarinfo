@@ -93,11 +93,11 @@ abstract class ArchiveReader
 		if (DIRECTORY_SEPARATOR === '\\') {
 			$com = new COM('Scripting.FileSystemObject');
 			$f = $com->GetFile($file);
-			return $f->Size;
+			return abs($f->Size);
 		}
 
 		// Hack for *nix
-		return trim(shell_exec('stat -c %s '.escapeshellarg($file)));
+		return abs(trim(shell_exec('stat -c %s '.escapeshellarg($file))));
 	}
 
 	/**
