@@ -6,6 +6,7 @@ ArchiveReader
 Abstract base class for the various file inspectors that defines the basic API
 and implements common methods for file/data handling.
 
+- 2.1 Code cleanup, made file property protected
 - 2.0 Made get/save range methods protected
 - 1.9 Improved range checks
 - 1.8 Added methods for getting & saving file data by range

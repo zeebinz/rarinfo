@@ -5,7 +5,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    2.0
+ * @version    2.1
  */
 abstract class ArchiveReader
 {
@@ -115,12 +115,6 @@ abstract class ArchiveReader
 	}
 
 	// ------ Instance variables and methods ---------------------------------------
-
-	/**
-	 * Path to the archive file (if any).
-	 * @var string
-	 */
-	public $file = '';
 
 	/**
 	 * The last error message.
@@ -251,6 +245,20 @@ abstract class ArchiveReader
 	}
 
 	/**
+	 * Magic method for accessing protected properties.
+	 *
+	 * @return  mixed
+	 * @throws  LogicException
+	 */
+	public function __get($name)
+	{
+		// For backwards compatibility
+		if ($name == 'file') {return $this->file;}
+
+		throw new LogicException('Cannot access protected property '.get_class($this).'::$'.$name);
+	}
+
+	/**
 	 * Convenience method that outputs a summary list of the archive information,
 	 * useful for pretty-printing.
 	 *
@@ -265,6 +273,12 @@ abstract class ArchiveReader
 	 * @return  mixed  an array of file records or false if none are available
 	 */
 	abstract public function getFileList();
+
+	/**
+	 * Path to the archive file (if any).
+	 * @var string
+	 */
+	protected $file = '';
 
 	/**
 	 * File handle for the current archive.
