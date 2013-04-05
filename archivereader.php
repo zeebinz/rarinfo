@@ -103,9 +103,9 @@ abstract class ArchiveReader
 	/**
 	 * Returns human-readable byte sizes as formatted strings.
 	 *
-	 * @param   integer   $bytes  the size to format
-	 * @param   integer   $round  decimal places limit
-	 * @return  string    human-readable size
+	 * @param   integer  $bytes  the size to format
+	 * @param   integer  $round  decimal places limit
+	 * @return  string   human-readable size
 	 */
 	public static function formatSize($bytes, $round=1)
 	{
@@ -459,15 +459,14 @@ abstract class ArchiveReader
 
 		// Check that enough data is available
 		$newPos = $this->offset + $num;
-		if ($num < 1 || $newPos > $this->length) {
+		if ($num < 1 || $newPos > $this->length)
 			throw new InvalidArgumentException("Could not read {$num} bytes from offset {$this->offset}");
-		}
 
 		// Read the requested bytes
-		if ($this->data) {
-			$read = substr($this->data, $this->tell(), $num);
-		} elseif (is_resource($this->handle)) {
+		if ($this->file && is_resource($this->handle)) {
 			$read = fread($this->handle, $num);
+		} elseif ($this->data) {
+			$read = substr($this->data, $this->tell(), $num);
 		}
 
 		// Confirm the read length
@@ -522,7 +521,7 @@ abstract class ArchiveReader
 	 */
 	protected function tell()
 	{
-		if (!$this->data && is_resource($this->handle))
+		if ($this->file && is_resource($this->handle))
 			return ftell($this->handle);
 
 		return $this->start + $this->offset;
@@ -535,7 +534,7 @@ abstract class ArchiveReader
 	 */
 	protected function rewind()
 	{
-		if (is_resource($this->handle)) {
+		if ($this->file && is_resource($this->handle)) {
 			rewind($this->handle);
 		}
 		$this->seek(0);
