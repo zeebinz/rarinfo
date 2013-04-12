@@ -107,7 +107,7 @@ class SrrInfo extends RarInfo
 		// Merge the SRR and RAR block names
 		$this->blockNames = $this->srrBlockNames + $this->blockNames;
 
-		parent::__construct($file, $isFragment=false, $range);
+		parent::__construct($file, $isFragment, $range);
 	}
 
 	/**
