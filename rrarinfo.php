@@ -41,7 +41,7 @@ require_once dirname(__FILE__).'/rarinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.1
+ * @version    1.2
  */
 class RecursiveRarInfo extends RarInfo
 {
@@ -114,10 +114,10 @@ class RecursiveRarInfo extends RarInfo
 				$rar = new self;
 				$start = $this->start + $block['offset'] + $block['head_size'];
 				if ($this->file) {
-					$end = min($this->end, ($this->start + $block['next_offset'] - 1));
+					$end = min($this->end, $start + $block['pack_size'] - 1);
 					$rar->open($this->file, $this->isFragment, array($start, $end));
 				} else {
-					$length = min($this->length, ($block['next_offset'] - $block['offset'] - $block['head_size']));
+					$length = min($this->length, $block['pack_size']);
 					$rar->setData(substr($this->data, $start, $length), $this->isFragment);
 				}
 
@@ -140,10 +140,10 @@ class RecursiveRarInfo extends RarInfo
 	/**
 	 * Provides the contents of the current archive in a flat list, optionally
 	 * recursing through all embedded archives as well, and appends a 'source'
-	 * field to each item with the archive tree info.
+	 * field to each item with the archive source path.
 	 *
 	 * @param   boolean  $recurse   list all archive contents recursively?
-	 * @param   string   $source    the archive source tree of the file item
+	 * @param   string   $source    the archive source of the file item
 	 * @return  array|boolean  the flat archive file list, or false on error
 	 */
 	public function getArchiveFileList($recurse=true, $source=null)
@@ -241,8 +241,8 @@ class RecursiveRarInfo extends RarInfo
 
 		// Get the absolute start/end positions
 		if (!($range = $this->getFileRangeInfo($filename, $source))) {
-			$in_source = $source ? " in: $source" : '';
-			$this->error = "Could not find file info for: ({$filename}{$in_source})";
+			$in_source = $source ? " in: ({$source})" : '';
+			$this->error = "Could not find file info for: ({$filename}){$in_source}";
 			return false;
 		}
 
