@@ -44,7 +44,7 @@ require_once dirname(__FILE__).'/rarinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.7
+ * @version    1.8
  */
 class SrrInfo extends RarInfo
 {
@@ -57,12 +57,19 @@ class SrrInfo extends RarInfo
 	// SRR Block types
 	const SRR_BLOCK_MARK      = 0x69;
 	const SRR_STORED_FILE     = 0x6a;
+	const SRR_OSO_HASH        = 0x6b;
 	const SRR_RAR_FILE        = 0x71;
 
 	// Flags for SRR Marker block
 	const APP_NAME_PRESENT    = 0x0001;
 
 	/**#@-*/
+
+	/**
+	 * Format for unpacking any OSO hash blocks.
+	 */
+	const FORMAT_SRR_OSO_HASH = 'Vfile_size/Vhigh_file_size/h16file_hash/vname_size';
+
 
 	// ------ Instance variables and methods ---------------------------------------
 
@@ -79,6 +86,7 @@ class SrrInfo extends RarInfo
 	protected $srrBlockNames = array(
 		self::SRR_BLOCK_MARK  => 'SRR Marker',
 		self::SRR_STORED_FILE => 'Stored File',
+		self::SRR_OSO_HASH    => 'OSO Hash',
 		self::SRR_RAR_FILE    => 'RAR File',
 	);
 
@@ -127,6 +135,9 @@ class SrrInfo extends RarInfo
 			'client'       => $this->client,
 			'stored_files' => $this->getStoredFiles($full),
 		);
+		if ($oso_info = $this->getOsoInfo()) {
+			$summary['oso_info'] = $oso_info;
+		}
 		$fileList = $this->getFileList($skipDirs);
 		$summary['file_count'] = $fileList ? count($fileList) : 0;
 		if ($full) {
@@ -162,6 +173,31 @@ class SrrInfo extends RarInfo
 		}
 
 		return $ret;
+	}
+
+	/**
+	 * Parses the stored blocks and returns summary info of any OSO hash block
+	 * in the SRR file/data.
+	 *
+	 * @link http://trac.opensubtitles.org/projects/opensubtitles/wiki/HashSourceCodes
+	 *
+	 * @return  array|false  OSO info, or false if none is available
+	 */
+	public function getOsoInfo()
+	{
+		if (empty($this->blocks)) {return false;}
+
+		foreach ($this->blocks as $block) {
+			if ($block['head_type'] == self::SRR_OSO_HASH) {
+				return array(
+					'name' => $block['file_name'],
+					'size' => $block['file_size'],
+					'hash' => $block['file_hash'],
+				);
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -232,6 +268,13 @@ class SrrInfo extends RarInfo
 				$block += self::unpack('vname_size', $this->read(2), false);
 				$block['file_name'] = $this->read($block['name_size']);
 				$block['file_data'] = $this->read($block['add_size']);
+
+			// Block type: OSO HASH
+			} elseif ($block['head_type'] == self::SRR_OSO_HASH) {
+				$block += self::unpack(self::FORMAT_SRR_OSO_HASH, $this->read(18));
+				$block['file_hash'] = strrev($block['file_hash']);
+				$block['file_size'] = self::int64($block['file_size'], $block['high_file_size']);
+				$block['file_name'] = $this->read($block['name_size']);
 
 			// Block type: SRR RAR FILE
 			} elseif ($block['head_type'] == self::SRR_RAR_FILE) {
