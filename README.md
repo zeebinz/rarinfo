@@ -6,6 +6,7 @@ ArchiveReader
 Abstract base class for the various file inspectors that defines the basic API
 and implements common methods for file/data handling.
 
+- 2.2 Added support for Windows timestamps and some tweaks
 - 2.1 Code cleanup, made file property protected
 - 2.0 Made get/save range methods protected
 - 1.9 Improved range checks
@@ -24,6 +25,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 4.2 Added basic support for the RAR 5.0 archive format
 - 4.1 Added handling of zero-padded RAR files
 - 4.0 Tweaked handing of file block headers and summaries
 - 3.9 Improved methods for extracting file contents
@@ -71,6 +73,7 @@ RecursiveRarInfo (extends RarInfo, in rrarinfo.php)
 Example class for recursively inspecting the contents of RAR archives packed
 within other RAR archives.
 
+- 1.3 Added basic support for the RAR 5.0 archive format
 - 1.2 Minor code tweaks for consistency
 - 1.1 Added source option to get/save file methods
 - 1.0 Initial release

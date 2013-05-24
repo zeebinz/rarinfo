@@ -241,7 +241,7 @@ class SrrInfo extends RarInfo
 	protected function analyze()
 	{
 		// Find the SRR MARKER block, or abort if none is found
-		if (($startPos = $this->findMarkerBlock()) === false) {
+		if (($startPos = $this->findRarMarker()) === false) {
 			$this->error = 'Could not find Marker block, not a valid SRR file';
 			return false;
 		}

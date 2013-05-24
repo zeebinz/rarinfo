@@ -5,7 +5,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    2.1
+ * @version    2.2
  */
 abstract class ArchiveReader
 {
@@ -75,6 +75,21 @@ abstract class ArchiveReader
 	}
 
 	/**
+	 * Converts Windows FILETIME format timestamps to UNIX timestamps.
+	 *
+	 * @param   integer  $low   low FILETIME byte
+	 * @param   integer  $high  high FILETIME byte
+	 * @return  integer  UNIX timestamp
+	 */
+	public static function win2unixtime($low, $high)
+	{
+		$ushift = 116444736000000000;
+		$ftime  = self::int64($low, $high);
+
+		return floor(($ftime - $ushift) / 10000000);
+	}
+
+	/**
 	 * Calculates the size of the given file.
 	 *
 	 * This is fiddly on 32-bit systems for sizes larger than 2GB due to internal
@@ -93,11 +108,11 @@ abstract class ArchiveReader
 		if (DIRECTORY_SEPARATOR === '\\') {
 			$com = new COM('Scripting.FileSystemObject');
 			$f = $com->GetFile($file);
-			return abs($f->Size);
+			return $f->Size + 0;
 		}
 
 		// Hack for *nix
-		return abs(trim(shell_exec('stat -c %s '.escapeshellarg($file))));
+		return trim(shell_exec('stat -c %s '.escapeshellarg($file))) + 0;
 	}
 
 	/**

@@ -120,4 +120,63 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertStringEndsWith('children, y, ', $data);
 	}
 
+	/**
+	 * Hooray for progress! The RAR 5.0 archive format is quite different from
+	 * earlier versions, but initially we just want to be able to detect the
+	 * the new format automatically and not break the basic public API.
+	 */
+	public function testBasicRar50Support()
+	{
+		$rar = new RarInfo;
+		$rar->open($this->fixturesDir.'/rar50_encrypted_files.rar');
+
+		// New archive format should be detected
+		$this->assertSame(RarInfo::FMT_RAR50, $rar->format);
+		$this->assertEmpty($rar->error);
+
+		// File list output should be the same
+		$this->assertSame(4, $rar->fileCount);
+		$files = $rar->getFileList();
+		$this->assertCount(4, $files);
+
+		$this->assertSame('testdir/4mb.txt', $files[0]['name']);
+		$this->assertSame(4194304, $files[0]['size']);
+		$this->assertSame(0, $files[0]['pass']);
+		$this->assertSame(0, $files[0]['compressed']);
+		$this->assertEquals('1275178921', $files[0]['date']);
+		$this->assertArrayNotHasKey('is_dir', $files[0]);
+
+		$this->assertSame('testdir', $files[1]['name']);
+		$this->assertSame(0, $files[1]['size']);
+		$this->assertSame(0, $files[1]['pass']);
+		$this->assertSame(0, $files[1]['compressed']);
+		$this->assertEquals('1368906855', $files[1]['date']);
+		$this->assertArrayHasKey('is_dir', $files[1]);
+
+		$this->assertSame('testdir/bar.txt', $files[2]['name']);
+		$this->assertSame(13, $files[2]['size']);
+		$this->assertSame(1, $files[2]['pass']);
+		$this->assertSame(1, $files[2]['compressed']);
+		$this->assertEquals('1369170252', $files[2]['date']);
+		$this->assertArrayNotHasKey('is_dir', $files[2]);
+
+		$this->assertSame('foo.txt', $files[3]['name']);
+		$this->assertSame(13, $files[3]['size']);
+		$this->assertSame(0, $files[3]['pass']);
+		$this->assertSame(0, $files[3]['compressed']);
+		$this->assertEquals('1369170262', $files[3]['date']);
+		$this->assertArrayNotHasKey('is_dir', $files[3]);
+
+		$this->assertSame('foo test text', $rar->getFileData('foo.txt'));
+
+		// Bonus! Archive comments are no longer compressed
+		$this->assertSame("test archive comment\x00", $rar->comments);
+
+		// Encrypted headers
+		$this->assertFalse($rar->isEncrypted);
+		$rar->open($this->fixturesDir.'/rar50_encrypted_headers.rar');
+		$this->assertTrue($rar->isEncrypted);
+		$this->assertSame(0, $rar->fileCount);
+	}
+
 } // End RarInfoTest
