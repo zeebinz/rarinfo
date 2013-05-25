@@ -179,4 +179,38 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(0, $rar->fileCount);
 	}
 
+	/**
+	 * We should have an easy way to retrieve a list of cached file headers from
+	 * a RAR 5.0 Quick Open block, if it exists.
+	 */
+	public function testRar50ListsQuickOpenCachedFiles()
+	{
+		$rar = new RarInfo;
+		$rar->open($this->fixturesDir.'/rar50_quickopen.rar');
+		$this->assertSame(RarInfo::FMT_RAR50, $rar->format);
+		$this->assertEmpty($rar->error);
+
+		$files = $rar->getQuickOpenFileList();
+		$this->assertCount(4, $files);
+
+		$this->assertSame('testdir/4mb.txt', $files[0]['name']);
+		$this->assertSame(4194304, $files[0]['size']);
+		$this->assertSame(0, $files[0]['compressed']);
+		$this->assertArrayNotHasKey('range', $files[0]);
+
+		$this->assertSame('testdir', $files[1]['name']);
+		$this->assertArrayHasKey('is_dir', $files[1]);
+
+		$this->assertSame('compressed.txt', $files[2]['name']);
+		$this->assertSame(4194304, $files[2]['size']);
+		$this->assertSame(1, $files[2]['compressed']);
+		$this->assertArrayNotHasKey('range', $files[2]);
+
+		$this->assertSame('bar.txt', $files[3]['name']);
+		$this->assertSame(13, $files[3]['size']);
+		$this->assertSame(1, $files[3]['pass']);
+		$this->assertSame(1, $files[3]['compressed']);
+		$this->assertArrayNotHasKey('range', $files[3]);
+	}
+
 } // End RarInfoTest

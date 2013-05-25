@@ -49,7 +49,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    4.2
+ * @version    4.3
  */
 class RarInfo extends ArchiveReader
 {
@@ -384,36 +384,31 @@ class RarInfo extends ArchiveReader
 	}
 
 	/**
-	 * Returns a list of the blocks found in the archive in human-readable format
-	 * (for debugging purposes only).
+	 * Returns a list of the blocks found in the archive, optionally in human-readable
+	 * format (for debugging purposes only).
 	 *
-	 * @param   boolean  $asHex  should numeric values be displayed as hexadecimal?
+	 * @param   boolean  $format  should the block data be formatted?
+	 * @param   boolean  $asHex   should numeric values be displayed as hexadecimal?
 	 * @return  array    list of blocks
 	 */
-	public function getBlocks($asHex=false)
+	public function getBlocks($format=true, $asHex=false)
 	{
 		// Check that blocks are stored
 		if (empty($this->blocks)) {return false;}
+		if (!$format) {return $this->blocks;}
 
-		// Build the block list
+		// Build a formatted block list
 		$ret = array();
 		foreach ($this->blocks as $block) {
-			$b = array();
-			$b['type'] = isset($this->blockNames[$block['head_type']]) ? $this->blockNames[$block['head_type']] : 'Unknown';
-			if ($block['head_type'] == self::BLOCK_SUB && isset($this->subblockNames[$block['file_name']])) {
-				$b['sub_type'] = $this->subblockNames[$block['file_name']];
+			$b = $this->formatBlock($block, $asHex);
+			if ($b['head_type'] == self::R50_BLOCK_SERVICE
+			 && $b['file_name'] == self::R50_SERVICE_QUICKOPEN
+			) {
+				// Format any cached blocks
+				foreach ($b['cache_data'] as &$cache) {
+					$cache['data'] = $this->formatBlock($cache['data'], $asHex);
+				}
 			}
-			if ($block['head_type'] == self::R50_BLOCK_SERVICE && isset($this->serviceNames[$block['file_name']])) {
-				$b['name'] = $this->serviceNames[$block['file_name']];
-			}
-			if ($asHex) foreach ($block as $key=>$val) {
-				$b[$key] = is_numeric($val) ? dechex($val) : $val;
-			} else {
-				$b += $block;
-			}
-
-			// Sanity check filename length
-			if (isset($b['file_name'])) {$b['file_name'] = substr($b['file_name'], 0, $this->maxFilenameLength);}
 			$ret[] = $b;
 		}
 
@@ -440,6 +435,35 @@ class RarInfo extends ArchiveReader
 			) {
 				if ($skipDirs && !empty($block['is_dir'])) {continue;}
 				$ret[] = $this->getFileBlockSummary($block);
+			}
+		}
+
+		return $ret;
+	}
+
+	/**
+	 * Returns a summary list of any RAR 5.0 Quick Open cached file headers.
+	 *
+	 * @param   boolean  $skipDirs  should directory entries be skipped?
+	 * @return  mixed    false if no file blocks available, or array of file records
+	 */
+	public function getQuickOpenFileList($skipDirs=false)
+	{
+		// Check that blocks are stored
+		if (empty($this->blocks)) {return false;}
+
+		$ret = array();
+		foreach ($this->blocks as $block) {
+			if ($block['head_type'] == self::R50_BLOCK_SERVICE
+			 && $block['file_name'] == self::R50_SERVICE_QUICKOPEN
+			) {
+				// Build the cached file header list
+				foreach ($block['cache_data'] as $cache) {
+					if ($cache['data']['head_type'] == self::R50_BLOCK_FILE) {
+						if ($skipDirs && !empty($cache['data']['is_dir'])) {continue;}
+						$ret[] = $this->getFileBlockSummary($cache['data'], true);
+					}
+				}
 			}
 		}
 
@@ -507,12 +531,49 @@ class RarInfo extends ArchiveReader
 	protected $blocks = array();
 
 	/**
+	 * Returns block data in human-readable format (for debugging purposes only).
+	 *
+	 * @param   array    $block  the block to format
+	 * @param   boolean  $asHex  should numeric values be displayed as hexadecimal?
+	 * @return  array    the formatted block
+	 */
+	protected function formatBlock($block, $asHex=false)
+	{
+		$b = array();
+
+		// Add block descriptors
+		$b['type'] = isset($this->blockNames[$block['head_type']]) ? $this->blockNames[$block['head_type']] : 'Unknown';
+		if ($block['head_type'] == self::BLOCK_SUB && isset($this->subblockNames[$block['file_name']])) {
+			$b['sub_type'] = $this->subblockNames[$block['file_name']];
+		}
+		if ($block['head_type'] == self::R50_BLOCK_SERVICE && isset($this->serviceNames[$block['file_name']])) {
+			$b['name'] = $this->serviceNames[$block['file_name']];
+		}
+		$b += $block;
+
+		// Use hexadecimal values?
+		if ($asHex) {
+			array_walk_recursive($b, function(&$value, $key) {
+				$value = is_numeric($value) ? base_convert($value, 10, 16) : $value;
+			});
+		}
+
+		// Sanity check filename length
+		if (isset($b['file_name'])) {
+			$b['file_name'] = substr($b['file_name'], 0, $this->maxFilenameLength);
+		}
+
+		return $b;
+	}
+
+	/**
 	 * Returns a processed summary of a RAR File block.
 	 *
-	 * @param   array  $block  a valid File block
+	 * @param   array  $block      a valid File block
+	 * @param   array  $quickOpen  is this a Quick Open cached block?
 	 * @return  array  summary information
 	 */
-	protected function getFileBlockSummary($block)
+	protected function getFileBlockSummary($block, $quickOpen=false)
 	{
 		$ret = array(
 			'name' => !empty($block['file_name']) ? substr($block['file_name'], 0, $this->maxFilenameLength) : 'Unknown',
@@ -524,7 +585,7 @@ class RarInfo extends ArchiveReader
 		);
 		if (!empty($block['is_dir'])) {
 			$ret['is_dir'] = 1;
-		} elseif (!in_array(self::BLOCK_FILE, $this->headersOnly['type'])) {
+		} elseif (!$quickOpen && !in_array(self::BLOCK_FILE, $this->headersOnly['type'])) {
 			$start = $this->start + $block['offset'] + $block['head_size'];
 			$end   = min($this->end, $start + $block['pack_size'] - 1);
 			$ret['range'] = "{$start}-{$end}";
@@ -954,10 +1015,11 @@ class RarInfo extends ArchiveReader
 	/**
 	 * Processes a RAR 5.0 block passed by reference based on its type.
 	 *
-	 * @param   array  $block  the block to process
+	 * @param   array  $block      the block to process
+	 * @param   array  $quickOpen  is this a Quick Open cached block?
 	 * @return  void
 	 */
-	protected function processBlockR50(&$block)
+	protected function processBlockR50(&$block, $quickOpen=false)
 	{
 		// Block type: ARCHIVE
 		if ($block['head_type'] == self::R50_BLOCK_MAIN) {
@@ -1015,15 +1077,20 @@ class RarInfo extends ArchiveReader
 			$block['file_name'] = $this->read($block['name_size']);
 
 			// Increment the file count
-			if ($block['head_type'] == self::R50_BLOCK_FILE) {
+			if ($block['head_type'] == self::R50_BLOCK_FILE && !$quickOpen) {
 				$this->fileCount++;
 			}
 
-			// Add any archive comments
-			if ($block['head_type'] == self::R50_BLOCK_SERVICE
-			 && $block['file_name'] == self::R50_SERVICE_COMMENT
-			) {
-				$this->comments = $this->read($block['pack_size']);
+			if ($block['head_type'] == self::R50_BLOCK_SERVICE && !$quickOpen) {
+
+				// Add any archive comments
+				if ($block['file_name'] == self::R50_SERVICE_COMMENT) {
+					$this->comments = $this->read($block['pack_size']);
+
+				// Add the quick open data
+				} elseif ($block['file_name'] == self::R50_SERVICE_QUICKOPEN) {
+					$this->processQuickOpenRecords($block);
+				}
 			}
 		}
 
@@ -1040,6 +1107,39 @@ class RarInfo extends ArchiveReader
 		// Process any extra records
 		if ($block['head_flags'] & self::R50_HAS_EXTRA) {
 			$this->processExtraRecords($block);
+		}
+	}
+
+	/**
+	 * Processes the RAR 5.0 Quick Open block data and stores any cached headers.
+	 *
+	 * @param   array  $block  the block to process
+	 * @return  void
+	 */
+	protected function processQuickOpenRecords(&$block)
+	{
+		$end = $this->offset + $block['data_size'];
+		while ($this->offset < $end) {
+
+			// Start the cache record
+			$cache = array('offset' => $this->offset);
+			$cache += self::unpack('Vcrc32', $this->read(4));
+			$cache['size']         = $this->getVarInt();
+			$cache['flags']        = $this->getVarInt();
+			$cache['quick_offset'] = $this->getVarInt();
+			$cache['data_size']    = $this->getVarInt();
+			$cache['next']         = $this->offset + $cache['data_size'];
+
+			// Process the cached header data
+			$data = $this->getNextBlockR50();
+			$this->processBlockR50($data, true);
+			$cache['data'] = $data;
+
+			// Store the cached data
+			$block['cache_data'][] = $cache;
+			if ($this->offset != $cache['next']) {
+				$this->seek($cache['next']);
+			}
 		}
 	}
 
