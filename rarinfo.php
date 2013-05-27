@@ -49,7 +49,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    4.3
+ * @version    4.4
  */
 class RarInfo extends ArchiveReader
 {
@@ -553,9 +553,7 @@ class RarInfo extends ArchiveReader
 
 		// Use hexadecimal values?
 		if ($asHex) {
-			array_walk_recursive($b, function(&$value, $key) {
-				$value = is_numeric($value) ? base_convert($value, 10, 16) : $value;
-			});
+			array_walk_recursive($b, array('self', 'convert2hex'));
 		}
 
 		// Sanity check filename length

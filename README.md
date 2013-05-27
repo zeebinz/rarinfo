@@ -6,6 +6,7 @@ ArchiveReader
 Abstract base class for the various file inspectors that defines the basic API
 and implements common methods for file/data handling.
 
+- 2.3 Cleaned up code, added convert2hex() method
 - 2.2 Added support for Windows timestamps and some tweaks
 - 2.1 Code cleanup, made file property protected
 - 2.0 Made get/save range methods protected
@@ -25,6 +26,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 4.4 Improved analysis performance, cleaned up code, fixed b/c
 - 4.3 Added handling of RAR 5.0 Quick Open data
 - 4.2 Added basic support for the RAR 5.0 archive format
 - 4.1 Added handling of zero-padded RAR files

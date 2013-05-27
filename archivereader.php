@@ -5,7 +5,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    2.2
+ * @version    2.3
  */
 abstract class ArchiveReader
 {
@@ -87,6 +87,19 @@ abstract class ArchiveReader
 		$ftime  = self::int64($low, $high);
 
 		return (int) floor(($ftime - $ushift) / 10000000);
+	}
+
+	/**
+	 * Converts a numeric value passed by reference to a hexadecimal string.
+	 *
+	 * @param   mixed  $value  the numeric value to convert
+	 * @return  void
+	 */
+	public static function convert2hex(&$value)
+	{
+		if (is_numeric($value)) {
+			$value = base_convert($value, 10, 16);
+		}
 	}
 
 	/**
