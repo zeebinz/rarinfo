@@ -44,7 +44,7 @@ require_once dirname(__FILE__).'/rarinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.8
+ * @version    1.9
  */
 class SrrInfo extends RarInfo
 {
@@ -68,7 +68,7 @@ class SrrInfo extends RarInfo
 	/**
 	 * Format for unpacking any OSO hash blocks.
 	 */
-	const FORMAT_SRR_OSO_HASH = 'Vfile_size/Vhigh_file_size/h16file_hash/vname_size';
+	const FORMAT_SRR_OSO_HASH = 'Vfile_size/Vfile_size_high/h16file_hash/vname_size';
 
 
 	// ------ Instance variables and methods ---------------------------------------
@@ -135,8 +135,8 @@ class SrrInfo extends RarInfo
 			'client'       => $this->client,
 			'stored_files' => $this->getStoredFiles($full),
 		);
-		if ($oso_info = $this->getOsoInfo()) {
-			$summary['oso_info'] = $oso_info;
+		if ($osoInfo = $this->getOsoInfo()) {
+			$summary['oso_info'] = $osoInfo;
 		}
 		$fileList = $this->getFileList($skipDirs);
 		$summary['file_count'] = $fileList ? count($fileList) : 0;
@@ -181,7 +181,7 @@ class SrrInfo extends RarInfo
 	 *
 	 * @link http://trac.opensubtitles.org/projects/opensubtitles/wiki/HashSourceCodes
 	 *
-	 * @return  array|false  OSO info, or false if none is available
+	 * @return  array|boolean  OSO info, or false if none is available
 	 */
 	public function getOsoInfo()
 	{
@@ -241,7 +241,7 @@ class SrrInfo extends RarInfo
 	protected function analyze()
 	{
 		// Find the SRR MARKER block, or abort if none is found
-		if (($startPos = $this->findRarMarker()) === false) {
+		if (($startPos = $this->findMarker()) === false) {
 			$this->error = 'Could not find Marker block, not a valid SRR file';
 			return false;
 		}
@@ -273,7 +273,7 @@ class SrrInfo extends RarInfo
 			} elseif ($block['head_type'] == self::SRR_OSO_HASH) {
 				$block += self::unpack(self::FORMAT_SRR_OSO_HASH, $this->read(18));
 				$block['file_hash'] = strrev($block['file_hash']);
-				$block['file_size'] = self::int64($block['file_size'], $block['high_file_size']);
+				$block['file_size'] = self::int64($block['file_size'], $block['file_size_high']);
 				$block['file_name'] = $this->read($block['name_size']);
 
 			// Block type: SRR RAR FILE
@@ -290,7 +290,9 @@ class SrrInfo extends RarInfo
 			$this->blocks[] = $block;
 
 			// Skip to the next block, if any
-			$this->seek($block['next_offset']);
+			if ($this->offset != $block['next_offset']) {
+				$this->seek($block['next_offset']);
+			}
 
 			// Sanity check
 			if ($block['offset'] == $this->offset) {

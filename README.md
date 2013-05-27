@@ -98,6 +98,7 @@ Class for inspecting the contents of SRR files and reporting on the RAR files
 that they cover, as well as allowing extraction of any stored files that they
 might contain.
 
+- 1.9 Improved analysis performance, cleaned up code
 - 1.8 Added handling of OSO hash blocks
 - 1.7 Improved handling of invalid extraction requests
 - 1.6 Added support for byte ranges
@@ -113,6 +114,7 @@ Par2Info (extends ArchiveReader)
 Class for inspecting the contents of PAR2 parity files and reporting on the
 archives that they cover.
 
+- 1.5 Improved analysis performance
 - 1.4 Added support for byte ranges
 - 1.3 Added block count to file list entries
 - 1.2 Improved property initialization
@@ -123,6 +125,7 @@ ZipInfo (extends ArchiveReader)
 --------------------------------
 Class for inspecting the contents of ZIP archives.
 
+- 1.5 Improved analysis performance, cleaned up code
 - 1.4 Improved methods for extracting file contents
 - 1.3 Added support for byte ranges
 - 1.2 Improved property initialization

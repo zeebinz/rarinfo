@@ -39,7 +39,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.4
+ * @version    1.5
  */
 class Par2Info extends ArchiveReader
 {
@@ -289,7 +289,9 @@ class Par2Info extends ArchiveReader
 			$this->packets[] = $packet;
 
 			// Skip to the next packet, if any
-			$this->seek($packet['next_offset']);
+			if ($this->offset != $packet['next_offset']) {
+				$this->seek($packet['next_offset']);
+			}
 
 			// Sanity check
 			if ($packet['offset'] == $this->offset) {
