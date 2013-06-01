@@ -6,6 +6,7 @@ ArchiveReader
 Abstract base class for the various file inspectors that defines the basic API
 and implements common methods for file/data handling.
 
+- 2.4 Fixed getting file sizes on Windows without com_dotnet loaded
 - 2.3 Cleaned up code, added convert2hex() method
 - 2.2 Added support for Windows timestamps and some tweaks
 - 2.1 Code cleanup, made file property protected
