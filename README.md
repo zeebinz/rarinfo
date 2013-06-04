@@ -78,6 +78,7 @@ RecursiveRarInfo (extends RarInfo, in rrarinfo.php)
 Example class for recursively inspecting the contents of RAR archives packed
 within other RAR archives.
 
+- 1.4 Improved handling of some corrupt sources, fixed exporting of embedded file data
 - 1.3 Added basic support for the RAR 5.0 archive format
 - 1.2 Minor code tweaks for consistency
 - 1.1 Added source option to get/save file methods
