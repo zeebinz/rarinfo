@@ -49,7 +49,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    4.5
+ * @version    4.6
  */
 class RarInfo extends ArchiveReader
 {
@@ -770,6 +770,10 @@ class RarInfo extends ArchiveReader
 
 			// Add the current block to the list
 			$this->blocks[] = $block;
+
+			// Bail if this is an encrypted archive
+			if ($this->isEncrypted)
+				break;
 
 			// Skip to the next block, if any
 			if ($this->offset != $block['next_offset']) {

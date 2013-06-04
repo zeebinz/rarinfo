@@ -177,6 +177,7 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 		$rar->open($this->fixturesDir.'/rar50_encrypted_headers.rar');
 		$this->assertTrue($rar->isEncrypted);
 		$this->assertSame(0, $rar->fileCount);
+		$this->assertCount(1, $rar->getBlocks());
 	}
 
 	/**
@@ -211,6 +212,25 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(1, $files[3]['pass']);
 		$this->assertSame(1, $files[3]['compressed']);
 		$this->assertArrayNotHasKey('range', $files[3]);
+	}
+
+	/**
+	 * We want to bail as early as possible when handling archives with encrypted
+	 * headers, as there's not much else we can do with them.
+	 */
+	public function testHandlesEncryptedArchivesGracefully()
+	{
+		$rar = new RarInfo;
+		$rar->open($this->fixturesDir.'/encrypted_headers.rar');
+		$this->assertTrue($rar->isEncrypted);
+		$this->assertCount(2, $rar->getBlocks());
+
+		$summary = $rar->getSummary(true);
+		$this->assertSame(1, $summary['is_encrypted']);
+		$this->assertSame(0, $summary['file_count']);
+		$this->assertSame(0, $rar->fileCount);
+		$this->assertEmpty($summary['file_list']);
+		$this->assertCount(0, $rar->getFileList());
 	}
 
 } // End RarInfoTest

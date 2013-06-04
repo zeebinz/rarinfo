@@ -27,6 +27,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 4.6 Fixed handling of archives with encrypted headers
 - 4.5 Improved handling of some corrupt sources
 - 4.4 Improved analysis performance, cleaned up code, fixed b/c
 - 4.3 Added handling of RAR 5.0 Quick Open data
