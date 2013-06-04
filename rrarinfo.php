@@ -41,7 +41,7 @@ require_once dirname(__FILE__).'/rarinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.4
+ * @version    1.5
  */
 class RecursiveRarInfo extends RarInfo
 {
@@ -106,8 +106,15 @@ class RecursiveRarInfo extends RarInfo
 		}
 
 		// Return a summary or object list
-		return $summary ? array_map(function ($rar) {return $rar->getSummary(true);},
-			$this->archives) : $this->archives;
+		if ($summary) {
+			$ret = array();
+			foreach ($this->archives as $name => $archive) {
+				$ret[$name] = $archive->getSummary(true);
+			}
+			return $ret;
+		}
+
+		return $this->archives;
 	}
 
 	/**
