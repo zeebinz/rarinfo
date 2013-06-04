@@ -74,12 +74,15 @@ class RecursiveRarInfo extends RarInfo
 		if (empty($this->blocks)) {return false;}
 
 		if (empty($this->archives)) foreach ($this->getBlocks() as $block) {
-			if ($block['head_type'] == self::BLOCK_FILE || $block['head_type'] == self::R50_BLOCK_FILE) {
-
+			if (($block['head_type'] == self::BLOCK_FILE || $block['head_type'] == self::R50_BLOCK_FILE)
+			 && !empty($block['file_name']) && empty($block['is_dir'])
+			) {
 				// Check the file extensions (lazy!)
 				$ext = pathinfo($block['file_name'], PATHINFO_EXTENSION);
 				if (preg_match('/(rar|r[0-9]+)/', $ext)) {
-					$this->archives[$block['file_name']] = $this->getArchive($block['file_name']);
+					if ($archive = $this->getArchive($block['file_name'])) {
+						$this->archives[$block['file_name']] = $archive;
+					}
 				}
 			}
 		}
@@ -109,8 +112,8 @@ class RecursiveRarInfo extends RarInfo
 
 		foreach ($this->blocks as $block) {
 			if (($block['head_type'] == self::BLOCK_FILE || $block['head_type'] == self::R50_BLOCK_FILE)
-			  && $block['file_name'] == $filename && empty($block['is_dir'])
-			 ) {
+			  && !empty($block['file_name']) && empty($block['is_dir']) && $block['file_name'] == $filename
+			) {
 				// Create the new archive object
 				$rar = new self;
 				$start = $this->start + $block['offset'] + $block['head_size'];
