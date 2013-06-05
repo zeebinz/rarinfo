@@ -41,7 +41,7 @@ require_once dirname(__FILE__).'/rarinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.5
+ * @version    1.6
  */
 class RecursiveRarInfo extends RarInfo
 {
@@ -55,19 +55,6 @@ class RecursiveRarInfo extends RarInfo
 	 * @var array
 	 */
 	protected $archives = array();
-
-	/**
-	 * The parent source path for the current archive, if it has one.
-	 * @var string
-	 */
-	protected $parentSource = '';
-
-	/**
-	 * The source path info for the current archive file list, starting with
-	 * the main archive (e.g. 'main' or 'main > child.rar', etc.).
-	 * @var string
-	 */
-	protected $currentSource = self::MAIN_SOURCE;
 
 	/**
 	 * Determines whether the current RAR archive contains another archive.
@@ -139,7 +126,6 @@ class RecursiveRarInfo extends RarInfo
 			if (($block['head_type'] == self::BLOCK_FILE || $block['head_type'] == self::R50_BLOCK_FILE)
 			  && !empty($block['file_name']) && empty($block['is_dir']) && $block['file_name'] == $filename
 			) {
-
 				// Create the new archive object
 				$rar = new self;
 				$start = $this->start + $block['offset'] + $block['head_size'];
@@ -149,10 +135,6 @@ class RecursiveRarInfo extends RarInfo
 				} else {
 					$rar->setData($this->data, $this->isFragment, array($start, $end));
 				}
-
-				// Add the archive source path info
-				$rar->parentSource  = $this->currentSource;
-				$rar->currentSource = $this->currentSource.' > '.$block['file_name'];
 
 				// Make any error messages more specific
 				if ($block['method'] != self::METHOD_STORE && $block['method'] != self::R50_METHOD_STORE && $rar->error) {
@@ -176,33 +158,38 @@ class RecursiveRarInfo extends RarInfo
 	 * added to each item that includes the archive source path.
 	 *
 	 * @param   boolean  $recurse   list all archive contents recursively?
+	 * @param   string   $source    the archive source of the file item
 	 * @return  array|boolean  the flat archive file list, or false on error
 	 */
-	public function getArchiveFileList($recurse=true)
+	public function getArchiveFileList($recurse=true, $source=null)
 	{
 		if (empty($this->blocks)) {return false;}
 		$ret = array();
 
 		// Start with the main parent
-		if ($this->currentSource == self::MAIN_SOURCE) {
+		if ($source == null) {
+			$source = self::MAIN_SOURCE;
 			$ret = $this->getFileList();
+			foreach ($ret as &$file) {$file['source'] = $source;}
 		}
 
 		// Merge each archive file list
 		if ($recurse && $this->containsArchive()) {
 			foreach ($this->getArchiveList() as $name => $archive) {
+				$branch = $source.' > '.$name;
 
 				// We should append any errors
 				if ($archive->error || !($files = $archive->getFileList())) {
 					$error = $archive->error ? $archive->error : 'No files found';
-					$ret[] = array('error' => $error, 'source' => $archive->currentSource);
+					$ret[] = array('error' => $error, 'source' => $branch);
 					continue;
 				}
 
 				// Otherwise merge recursively
+				foreach ($files as &$file) {$file['source'] = $branch;}
 				$ret = array_merge($ret, $files);
 				if ($archive->containsArchive()) {
-					$ret = array_merge($ret, $archive->getArchiveFileList(true));
+					$ret = array_merge($ret, $archive->getArchiveFileList(true, $branch));
 				}
 			}
 		}
@@ -222,7 +209,6 @@ class RecursiveRarInfo extends RarInfo
 	public function getSummary($full=false, $skipDirs=false)
 	{
 		$summary = parent::getSummary($full, $skipDirs);
-		$summary['source'] = $this->parentSource;
 		if ($full && $this->containsArchive()) {
 			$summary['archives'] = $this->getArchiveList(true); // recursive
 		}
@@ -279,20 +265,6 @@ class RecursiveRarInfo extends RarInfo
 	}
 
 	/**
-	 * Returns a processed summary of a RAR File block.
-	 *
-	 * @param   array  $block      a valid File block
-	 * @param   array  $quickOpen  is this a Quick Open cached block?
-	 * @return  array  summary information
-	 */
-	protected function getFileBlockSummary($block, $quickOpen=false)
-	{
-		$summary = parent::getFileBlockSummary($block, $quickOpen);
-		$summary['source'] = $this->currentSource;
-		return $summary;
-	}
-
-	/**
 	 * Returns the absolute start and end positions for the given filename and
 	 * optionally archive source in the current file/data.
 	 *
@@ -327,8 +299,6 @@ class RecursiveRarInfo extends RarInfo
 	{
 		parent::reset();
 		$this->archives = array();
-		$this->parentSource = '';
-		$this->currentSource = self::MAIN_SOURCE;
 	}
 
 } // End RecursiveRarInfo class

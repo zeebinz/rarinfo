@@ -145,6 +145,15 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(0, $file['compressed']);
 		$this->assertSame('2089-2106', $file['range']);
 		$this->assertSame($content, $rar->getFileData('file1.txt', $file['source']));
+		$this->assertSame($content, $rar->getArchive('embedded_1_rar.rar')
+			->getFileData('file1.txt', 'main > embedded_2_rar.rar > multi.part1.rar'));
+		$this->assertSame($content, $rar->getArchive('embedded_1_rar.rar')
+			->getArchive('embedded_2_rar.rar')
+			->getFileData('file1.txt', 'main > multi.part1.rar'));
+		$this->assertSame($content, $rar->getArchive('embedded_1_rar.rar')
+			->getArchive('embedded_2_rar.rar')
+			->getArchive('multi.part1.rar')
+			->getFileData('file1.txt'));
 
 		$rar->setData(file_get_contents($this->fixturesDir.'/embedded_rars.rar'));
 		$files = $rar->getArchiveFileList(true);
@@ -154,6 +163,15 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(0, $file['compressed']);
 		$this->assertSame('2089-2106', $file['range']);
 		$this->assertSame($content, $rar->getFileData('file1.txt', $file['source']));
+		$this->assertSame($content, $rar->getArchive('embedded_1_rar.rar')
+			->getFileData('file1.txt', 'main > embedded_2_rar.rar > multi.part1.rar'));
+		$this->assertSame($content, $rar->getArchive('embedded_1_rar.rar')
+			->getArchive('embedded_2_rar.rar')
+			->getFileData('file1.txt', 'main > multi.part1.rar'));
+		$this->assertSame($content, $rar->getArchive('embedded_1_rar.rar')
+			->getArchive('embedded_2_rar.rar')
+			->getArchive('multi.part1.rar')
+			->getFileData('file1.txt'));
 	}
 
 } // End RecursiveRarInfoTest
