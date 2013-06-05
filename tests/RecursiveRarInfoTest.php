@@ -174,4 +174,48 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 			->getFileData('file1.txt'));
 	}
 
+	/**
+	 * We should be able to handle embedded RAR 5.0 format archives without fuss.
+	 *
+	 * @depends testListsAllArchiveFilesRecursively
+	 */
+	public function testHandlesEmbeddedRar50Archives()
+	{
+		$rar = new RecursiveRarInfo;
+		$rar->open($this->fixturesDir.'/rar50_embedded_rar.rar');
+		$this->assertSame(RarInfo::FMT_RAR50, $rar->format);
+		$this->assertEmpty($rar->error);
+
+		$files = $rar->getArchiveFileList(true);
+		$this->assertCount(6, $files);
+		$file = $files[1];
+		$this->assertSame('encrypted_files.rar', $file['name']);
+		$this->assertSame('main', $file['source']);
+		$this->assertSame(0, $file['compressed']);
+		$this->assertSame(0, $file['pass']);
+		$this->assertSame('593-4195342', $file['range']);
+		$file = $files[4];
+		$this->assertSame('testdir/bar.txt', $file['name']);
+		$this->assertSame('main > encrypted_files.rar', $file['source']);
+		$this->assertSame(1, $file['compressed']);
+		$this->assertSame(1, $file['pass']);
+		$this->assertSame('4195152-4195183', $file['range']);
+		$file = $files[5];
+		$this->assertSame('foo.txt', $file['name']);
+		$this->assertSame('main > encrypted_files.rar', $file['source']);
+		$this->assertSame(0, $file['compressed']);
+		$this->assertSame(0, $file['pass']);
+		$this->assertSame('4195240-4195252', $file['range']);
+
+		$content = 'foo test text';
+		$this->assertSame($content, $rar->getArchive('encrypted_files.rar')->getFileData('foo.txt'));
+		$this->assertSame($content, $rar->getFileData('foo.txt', $file['source']));
+		$this->assertSame($content, $rar->getFileData('foo.txt', 'encrypted_files.rar'));
+
+		$files = $rar->getArchive('encrypted_files.rar')->getQuickOpenFileList();
+		$this->assertCount(1, $files);
+		$this->assertSame('testdir/4mb.txt', $files[0]['name']);
+		$this->assertArrayNotHasKey('range', $files[0]);
+	}
+
 } // End RecursiveRarInfoTest
