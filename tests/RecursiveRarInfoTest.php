@@ -182,6 +182,8 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 	public function testHandlesEmbeddedRar50Archives()
 	{
 		$rar = new RecursiveRarInfo;
+
+		// RAR 5.0 format archive within RAR 5.0 archive
 		$rar->open($this->fixturesDir.'/rar50_embedded_rar.rar');
 		$this->assertSame(RarInfo::FMT_RAR50, $rar->format);
 		$this->assertEmpty($rar->error);
@@ -208,6 +210,7 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame('4195240-4195252', $file['range']);
 
 		$content = 'foo test text';
+		$this->assertSame(RarInfo::FMT_RAR50, $rar->getArchive('encrypted_files.rar')->format);
 		$this->assertSame($content, $rar->getArchive('encrypted_files.rar')->getFileData('foo.txt'));
 		$this->assertSame($content, $rar->getFileData('foo.txt', $file['source']));
 		$this->assertSame($content, $rar->getFileData('foo.txt', 'encrypted_files.rar'));
@@ -216,6 +219,40 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertCount(1, $files);
 		$this->assertSame('testdir/4mb.txt', $files[0]['name']);
 		$this->assertArrayNotHasKey('range', $files[0]);
+
+		// RAR 1.5 - 4.x format archive within RAR 5.0 archive
+		$rar->open($this->fixturesDir.'/rar50_embedded_rar15.rar');
+		$this->assertSame(RarInfo::FMT_RAR50, $rar->format);
+		$this->assertEmpty($rar->error);
+
+		$files = $rar->getArchiveFileList(true);
+		$this->assertCount(4, $files);
+		$file = $files[1];
+		$this->assertSame('encrypted_only_files.rar', $file['name']);
+		$this->assertSame(RarInfo::FMT_RAR15, $rar->getArchive($file['name'])->format);
+		$file = $files[2];
+		$this->assertSame('encfile1.txt', $file['name']);
+		$this->assertSame('main > encrypted_only_files.rar', $file['source']);
+		$this->assertSame(1, $file['compressed']);
+		$this->assertSame(1, $file['pass']);
+		$this->assertSame('4194509-4194556', $file['range']);
+
+		// RAR 5.0 format archive within 1.5 - 4.x archive
+		$rar->open($this->fixturesDir.'/embedded_rar50.rar');
+		$this->assertSame(RarInfo::FMT_RAR15, $rar->format);
+		$this->assertEmpty($rar->error);
+
+		$files = $rar->getArchiveFileList(true);
+		$this->assertCount(5, $files);
+		$file = $files[0];
+		$this->assertSame('rar50_encrypted_files.rar', $file['name']);
+		$this->assertSame(RarInfo::FMT_RAR50, $rar->getArchive($file['name'])->format);
+		$file = $files[3];
+		$this->assertSame('testdir/bar.txt', $file['name']);
+		$this->assertSame('main > rar50_encrypted_files.rar', $file['source']);
+		$this->assertSame(1, $file['compressed']);
+		$this->assertSame(1, $file['pass']);
+		$this->assertSame('4194641-4194672', $file['range']);
 	}
 
 } // End RecursiveRarInfoTest
