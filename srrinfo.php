@@ -44,7 +44,7 @@ require_once dirname(__FILE__).'/rarinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.9
+ * @version    2.0
  */
 class SrrInfo extends RarInfo
 {
@@ -129,7 +129,7 @@ class SrrInfo extends RarInfo
 	public function getSummary($full=false, $skipDirs=false)
 	{
 		$summary = array(
-			'srr_file'     => $this->file,
+			'file_name'    => $this->file,
 			'file_size'    => $this->fileSize,
 			'data_size'    => $this->dataSize,
 			'client'       => $this->client,
@@ -142,6 +142,9 @@ class SrrInfo extends RarInfo
 		$summary['file_count'] = $fileList ? count($fileList) : 0;
 		if ($full) {
 			$summary['file_list'] = $fileList;
+		}
+		if ($this->error) {
+			$summary['error'] = $this->error;
 		}
 
 		return $summary;
@@ -205,7 +208,7 @@ class SrrInfo extends RarInfo
 	 * SRR data covers.
 	 *
 	 * @param   boolean  $skipDirs  should directory entries be skipped?
-	 * @return  mixed  false if no file blocks available, or array of records
+	 * @return  array|boolean  list of file records, or false if none are available
 	 */
 	public function getFileList($skipDirs=false)
 	{

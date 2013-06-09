@@ -58,8 +58,8 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 		}
 
 		// Summary should return the same list with source info
-		$summary = $sfv->getSummary(true);
-		$this->assertSame($source, $summary['sfv_file']);
+		$summary = $sfv->getSummary(true, true);
+		$this->assertSame($source, $summary['file_name']);
 		$this->assertSame($list, $summary['file_list']);
 		$this->assertSame($filecount, $summary['file_count']);
 		$this->assertSame(filesize($source), $summary['file_size']);
@@ -71,8 +71,8 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 		$sfv->setData($data);
 		$this->assertSame($filecount, $sfv->fileCount);
 
-		$summary = $sfv->getSummary(true);
-		$this->assertEmpty($summary['sfv_file']);
+		$summary = $sfv->getSummary(true, true);
+		$this->assertEmpty($summary['file_name']);
 		$this->assertSame($list, $summary['file_list']);
 		$this->assertSame($filecount, $summary['file_count']);
 		$this->assertEmpty($summary['file_size']);

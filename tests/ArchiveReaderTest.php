@@ -301,7 +301,7 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 class TestArchiveReader extends ArchiveReader
 {
 	// Abstract method implementations
-	public function getSummary()
+	public function getSummary($full=false)
 	{
 		return array(
 			'fileSize' => $this->fileSize,
@@ -310,6 +310,7 @@ class TestArchiveReader extends ArchiveReader
 	}
 
 	public function getFileList() {}
+	public function findMarker() {}
 
 	protected function analyze()
 	{

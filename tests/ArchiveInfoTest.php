@@ -1,13 +1,13 @@
 <?php
 
-include_once dirname(__FILE__).'/../rrarinfo.php';
+include_once dirname(__FILE__).'/../archiveinfo.php';
 
 /**
- * Test case for RecursiveRarInfo.
+ * Test case for ArchiveInfo.
  *
- * @group  rrar
+ * @group  ainfo
  */
-class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
+class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 {
 	protected $fixturesDir;
 
@@ -16,7 +16,194 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 	 */
 	protected function setUp()
 	{
-		$this->fixturesDir = realpath(dirname(__FILE__).'/fixtures/rar');
+		$this->fixturesDir = realpath(dirname(__FILE__).'/fixtures');
+	}
+
+	/**
+	 * The first job of this class is to decide whether we're dealing with one of
+	 * the supported archive types, and if so create a reader instance to handle
+	 * the rest of the work via delegation.
+	 */
+	public function testAutomaticallyDetectsSupportedArchiveTypes()
+	{
+		$archive = new ArchiveInfo;
+
+		// RAR
+		$archive->open($this->fixturesDir.'/rar/4mb.rar');
+		$this->assertEmpty($archive->error);
+		$this->assertSame(ArchiveInfo::TYPE_RAR, $archive->type);
+		$this->assertInstanceOf('RarInfo', $archive->getReader());
+		$this->assertSame(1, $archive->fileCount);
+
+		// SRR
+		$archive->open($this->fixturesDir.'/srr/added_empty_file.srr');
+		$this->assertEmpty($archive->error);
+		$this->assertSame(ArchiveInfo::TYPE_SRR, $archive->type);
+		$this->assertInstanceOf('SrrInfo', $archive->getReader());
+		$this->assertSame(1, $archive->fileCount);
+		$this->assertCount(1, $archive->getStoredFiles());
+
+		// PAR2
+		$archive->open($this->fixturesDir.'/par2/testdata.par2');
+		$this->assertEmpty($archive->error);
+		$this->assertSame(ArchiveInfo::TYPE_PAR2, $archive->type);
+		$this->assertInstanceOf('Par2Info', $archive->getReader());
+		$this->assertSame(10, $archive->fileCount);
+		$this->assertSame(0, $archive->blockCount);
+		$this->assertEquals(5376, $archive->blockSize);
+
+		// ZIP
+		$archive->open($this->fixturesDir.'/zip/little_file.zip');
+		$this->assertEmpty($archive->error);
+		$this->assertSame(ArchiveInfo::TYPE_ZIP, $archive->type);
+		$this->assertInstanceOf('ZipInfo', $archive->getReader());
+		$this->assertSame(1, $archive->fileCount);
+
+		// SFV
+		$archive->open($this->fixturesDir.'/sfv/test001.sfv');
+		$this->assertEmpty($archive->error);
+		$this->assertSame(ArchiveInfo::TYPE_SFV, $archive->type);
+		$this->assertInstanceOf('SfvInfo', $archive->getReader());
+		$this->assertSame(5, $archive->fileCount);
+		$this->assertNotEmpty($archive->comments);
+
+		// Unsupported
+		$archive->open($this->fixturesDir.'/misc/foo.txt');
+		$this->assertNotEmpty($archive->error);
+		$this->assertContains('not a supported archive type', $archive->error);
+		$this->assertSame(ArchiveInfo::TYPE_NONE, $archive->type);
+		$this->assertEmpty($archive->getReader());
+	}
+
+	/**
+	 * The next main responsibility of this class is to handle parsing of any
+	 * supported archive types that have been embedded in others. We'll start
+	 * here by testing two basic samples by chaining archive calls.
+	 *
+	 * @depends  testAutomaticallyDetectsSupportedArchiveTypes
+	 */
+	public function testHandlesEmbeddedArchiveTypes()
+	{
+		$archive = new ArchiveInfo;
+
+		// ZIP within RAR
+		$archive->open($this->fixturesDir.'/misc/zip_in_rar.rar');
+		$this->assertEmpty($archive->error);
+		$this->assertSame(ArchiveInfo::TYPE_RAR, $archive->type);
+		$this->assertSame(1, $archive->fileCount);
+		$files = $archive->getFileList();
+		$this->assertCount(1, $files);
+		$this->assertSame('little_file.zip', $files[0]['name']);
+
+		$zip = $archive->getArchive($files[0]['name']);
+		$this->assertSame(ArchiveInfo::TYPE_ZIP, $zip->type);
+		$this->assertSame(1, $zip->fileCount);
+		$files = $zip->getFileList();
+		$this->assertCount(1, $files);
+		$this->assertSame('little_file.txt', $files[0]['name']);
+		$this->assertSame(11, $files[0]['size']);
+		$this->assertSame(0, $files[0]['compressed']);
+		$text = $zip->getFileData($files[0]['name']);
+		$this->assertSame($files[0]['size'], strlen($text));
+		$this->assertContains('Some text', $text);
+		unset($zip);
+
+		// RAR within ZIP
+		$archive->open($this->fixturesDir.'/misc/rar_in_zip.zip');
+		$this->assertEmpty($archive->error);
+		$this->assertSame(ArchiveInfo::TYPE_ZIP, $archive->type);
+		$this->assertSame(1, $archive->fileCount);
+		$files = $archive->getFileList();
+		$this->assertCount(1, $files);
+		$this->assertSame('commented.rar', $files[0]['name']);
+
+		$rar = $archive->getArchive($files[0]['name']);
+		$this->assertSame(ArchiveInfo::TYPE_RAR, $rar->type);
+		$this->assertSame(1, $rar->fileCount);
+		$files = $rar->getFileList();
+		$this->assertCount(1, $files);
+		$this->assertSame('file.txt', $files[0]['name']);
+		$this->assertSame(12, $files[0]['size']);
+		$this->assertSame(0, $files[0]['compressed']);
+		$text = $rar->getFileData($files[0]['name']);
+		$this->assertSame($files[0]['size'], strlen($text));
+		$this->assertContains('file content', $text);
+	}
+
+	/**
+	 * We also want to be able to list the contents of all embedded archive files
+	 * recursively, by either chaining or in a flat list. These samples should
+	 * contain all supported archive types in different containers.
+	 *
+	 * @depends  testHandlesEmbeddedArchiveTypes
+	 * @dataProvider  providerSampleFiles
+	 * @param  string  $file  the sample filename
+	 * @param  string  $type  the sample type
+	 */
+	public function testListsAllEmbeddedArchiveFilesRecursively($file, $type)
+	{
+		$archive = new ArchiveInfo;
+		$archive->open($this->fixturesDir.$file);
+		$this->assertEmpty($archive->error);
+		$this->assertSame($type, $archive->type);
+		$this->assertSame(8, $archive->fileCount);
+
+		// List only the archives, as summaries
+		$files = $archive->getArchiveList(true);
+		$this->assertCount(7, $files);
+		foreach ($files as $name => $summary) {
+
+			// Each archive should specify its reader type
+			$this->assertArrayHasKey('main_info', $summary);
+			$this->assertArrayHasKey('main_type', $summary);
+			$this->assertInstanceOf($summary['main_info'],
+				$archive->getArchive($name)->getReader());
+			$this->assertSame($summary['main_type'],
+				$archive->getArchive($name)->type);
+
+			// Any embedded archives should be listed recursively
+			$this->assertNotEmpty($summary['file_list']);
+			if ($archive->getArchive($name)->containsArchive()) {
+				$this->assertArrayHasKey('archives', $summary);
+				$this->assertNotEmpty($summary['archives']);
+			} else {
+				$this->assertArrayNotHasKey('archives', $summary);
+			}
+		}
+
+		// List all archive files recursively in a flat list
+		$files = $archive->getArchiveFileList(true);
+		$this->assertCount(14, $files);
+		usort($files, function($a, $b) {
+			return strcasecmp($a['name'].': '.$a['source'], $b['name'].': '.$b['source']);
+		});
+
+		// File packed in RAR in ZIP:
+		$this->assertSame('commented.rar', $files[1]['name']);
+		$this->assertSame('main > rar_in_zip.zip', $files[1]['source']);
+		$this->assertSame('file.txt', $files[3]['name']);
+		$this->assertSame('main > rar_in_zip.zip > commented.rar', $files[3]['source']);
+		$text = $archive->getFileData($files[3]['name'], $files[3]['source']);
+		$this->assertContains('file content', $text);
+
+		// File packed in ZIP in RAR:
+		$this->assertSame('little_file.zip', $files[8]['name']);
+		$this->assertSame('main > zip_in_rar.rar', $files[8]['source']);
+		$this->assertSame('little_file.txt', $files[6]['name']);
+		$this->assertSame('main > zip_in_rar.rar > little_file.zip', $files[6]['source']);
+		$text = $archive->getFileData($files[6]['name'], $files[6]['source']);
+		$this->assertContains('Some text', $text);
+	}
+
+	/**
+	 * Provides info for sample files containing all supported archive types.
+	 */
+	public function providerSampleFiles()
+	{
+		return array(
+			array('/misc/misc_in_rar.rar', ArchiveInfo::TYPE_RAR),
+			array('/misc/misc_in_zip.zip', ArchiveInfo::TYPE_ZIP),
+		);
 	}
 
 	/**
@@ -24,11 +211,13 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 	 * to handle any embedded RAR archives, either as chainable objects or within
 	 * flat file lists. The enhanced summary output should display the full nested
 	 * tree of archive contents.
+	 *
+	 * @depends  testHandlesEmbeddedArchiveTypes
 	 */
-	public function testListsAllArchiveFilesRecursively()
+	public function testListsAllRarFilesRecursively()
 	{
-		$rar = new RecursiveRarInfo;
-		$rar->open($this->fixturesDir.'/embedded_rars.rar');
+		$rar = new ArchiveInfo;
+		$rar->open($this->fixturesDir.'/rar/embedded_rars.rar');
 
 		// Vanilla file list
 		$files = $rar->getFileList();
@@ -45,15 +234,15 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertCount(3, $summary['archives']);
 		$this->assertTrue(isset($summary['archives']['compressed_rar.rar']['archives']['4mb.rar']));
 		$file = $summary['archives']['compressed_rar.rar']['archives']['4mb.rar'];
-		$this->assertSame($rar->file, $file['file_name']);
-		$this->assertSame($summary['file_size'], $file['file_size']);
-		$this->assertSame('7420-7878', $file['use_range']);
+		$this->assertEmpty($file['file_name']);
+		$this->assertSame(0, $file['file_size']);
+		$this->assertSame('0-0', $file['use_range']);
 		$this->assertContains('archive is compressed', $file['error']);
 		unset($summary);
 
 		// Method chaining
 		$rar2 = $rar->getArchive('embedded_1_rar.rar');
-		$this->assertInstanceof('RecursiveRarInfo', $rar2);
+		$this->assertInstanceof('ArchiveInfo', $rar2);
 		$files = $rar2->getArchive('store_method.rar')->getFileList();
 		$this->assertCount(1, $files);
 		$this->assertSame('tese.txt', $files[0]['name']);
@@ -63,9 +252,9 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 		$archives = $rar->getArchiveList();
 		$this->assertCount(3, $archives);
 		$this->assertArrayHasKey('embedded_1_rar.rar', $archives);
-		$this->assertInstanceof('RecursiveRarInfo', $archives['embedded_1_rar.rar']);
+		$this->assertInstanceof('ArchiveInfo', $archives['embedded_1_rar.rar']);
 		$archives = $rar->getArchiveList(true);
-		$this->assertNotInstanceof('RecursiveRarInfo', $archives['embedded_1_rar.rar']);
+		$this->assertNotInstanceof('ArchiveInfo', $archives['embedded_1_rar.rar']);
 		$this->assertArrayHasKey('archives', $archives['embedded_1_rar.rar']);
 		unset($archives);
 
@@ -97,16 +286,16 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 	}
 
 	/**
-	 * If the archive files are packed with the Store method, we should just be able
+	 * If the RAR files are packed with the Store method, we should just be able
 	 * to extract the file data and use it as is, and we should be able to retrieve
 	 * the contents of embedded files via chaining or by specifying the source.
 	 *
-	 * @depends testListsAllArchiveFilesRecursively
+	 * @depends  testListsAllRarFilesRecursively
 	 */
-	public function testExtractsEmbeddedFileDataPackedWithStoreMethod()
+	public function testExtractsEmbeddedRarFileDataPackedWithStoreMethod()
 	{
-		$rar = new RecursiveRarInfo;
-		$rar->open($this->fixturesDir.'/embedded_rars.rar');
+		$rar = new ArchiveInfo;
+		$rar->open($this->fixturesDir.'/rar/embedded_rars.rar');
 		$content = 'file content';
 
 		$files = $rar->getArchiveFileList(true);
@@ -125,7 +314,7 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame($content, $rar->getFileData('file.txt', 'commented.rar'));
 
 		// Using setData should produce the same results
-		$rar->setData(file_get_contents($this->fixturesDir.'/embedded_rars.rar'));
+		$rar->setData(file_get_contents($this->fixturesDir.'/rar/embedded_rars.rar'));
 		$files = $rar->getArchiveFileList(true);
 		$this->assertArrayHasKey(12, $files);
 		$file = $files[12];
@@ -137,7 +326,7 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 
 		// And with a more deeply embedded file
 		$content = 'contents of file 1';
-		$rar->open($this->fixturesDir.'/embedded_rars.rar');
+		$rar->open($this->fixturesDir.'/rar/embedded_rars.rar');
 		$files = $rar->getArchiveFileList(true);
 		$file = $files[10];
 		$this->assertSame('file1.txt', $file['name']);
@@ -155,7 +344,7 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 			->getArchive('multi.part1.rar')
 			->getFileData('file1.txt'));
 
-		$rar->setData(file_get_contents($this->fixturesDir.'/embedded_rars.rar'));
+		$rar->setData(file_get_contents($this->fixturesDir.'/rar/embedded_rars.rar'));
 		$files = $rar->getArchiveFileList(true);
 		$file = $files[10];
 		$this->assertSame('file1.txt', $file['name']);
@@ -177,14 +366,14 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 	/**
 	 * We should be able to handle embedded RAR 5.0 format archives without fuss.
 	 *
-	 * @depends testListsAllArchiveFilesRecursively
+	 * @depends  testListsAllRarFilesRecursively
 	 */
 	public function testHandlesEmbeddedRar50Archives()
 	{
-		$rar = new RecursiveRarInfo;
+		$rar = new ArchiveInfo;
 
 		// RAR 5.0 format archive within RAR 5.0 archive
-		$rar->open($this->fixturesDir.'/rar50_embedded_rar.rar');
+		$rar->open($this->fixturesDir.'/rar/rar50_embedded_rar.rar');
 		$this->assertSame(RarInfo::FMT_RAR50, $rar->format);
 		$this->assertEmpty($rar->error);
 
@@ -221,7 +410,7 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertArrayNotHasKey('range', $files[0]);
 
 		// RAR 1.5 - 4.x format archive within RAR 5.0 archive
-		$rar->open($this->fixturesDir.'/rar50_embedded_rar15.rar');
+		$rar->open($this->fixturesDir.'/rar/rar50_embedded_rar15.rar');
 		$this->assertSame(RarInfo::FMT_RAR50, $rar->format);
 		$this->assertEmpty($rar->error);
 
@@ -238,7 +427,7 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame('4194509-4194556', $file['range']);
 
 		// RAR 5.0 format archive within 1.5 - 4.x archive
-		$rar->open($this->fixturesDir.'/embedded_rar50.rar');
+		$rar->open($this->fixturesDir.'/rar/embedded_rar50.rar');
 		$this->assertSame(RarInfo::FMT_RAR15, $rar->format);
 		$this->assertEmpty($rar->error);
 
@@ -255,4 +444,4 @@ class RecursiveRarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame('4194641-4194672', $file['range']);
 	}
 
-} // End RecursiveRarInfoTest
+} // End ArchiveInfoTest

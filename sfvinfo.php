@@ -31,7 +31,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.7
+ * @version    1.8
  */
 class SfvInfo extends ArchiveReader
 {
@@ -48,22 +48,29 @@ class SfvInfo extends ArchiveReader
 	 * @param   boolean  $basenames  don't include full file paths?
 	 * @return  array    file record summary
 	 */
-	public function getSummary($basenames=false)
+	public function getSummary($full=false, $basenames=false)
 	{
-		return array(
-			'sfv_file'   => $this->file,
+		$summary = array(
+			'file_name'  => $this->file,
 			'file_size'  => $this->fileSize,
 			'data_size'  => $this->dataSize,
 			'file_count' => $this->fileCount,
-			'file_list'  => $this->getFileList($basenames),
 		);
+		if ($full) {
+			$summary['file_list'] = $this->getFileList($basenames);
+		}
+		if ($this->error) {
+			$summary['error'] = $this->error;
+		}
+
+		return $summary;
 	}
 
 	/**
 	 * Returns a list of file records with checksums from the source SFV file.
 	 *
 	 * @param   boolean  $basenames  don't include full file paths?
-	 * @return  mixed    false if no info is available, or array of file records
+	 * @return  array|boolean  list of file records, or false if none are available
 	 */
 	public function getFileList($basenames=false)
 	{
@@ -80,6 +87,16 @@ class SfvInfo extends ArchiveReader
 		}
 
 		return $this->fileList;
+	}
+
+	/**
+	 * Returns the position of the archive marker/signature.
+	 *
+	 * @return  mixed  Marker position, or false if none found
+	 */
+	public function findMarker()
+	{
+		return $this->markerPosition = 0;
 	}
 
 	/**

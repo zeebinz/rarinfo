@@ -39,7 +39,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.5
+ * @version    1.6
  */
 class Par2Info extends ArchiveReader
 {
@@ -138,16 +138,19 @@ class Par2Info extends ArchiveReader
 	public function getSummary($full=false)
 	{
 		$summary = array(
-			'par2_file' => $this->file,
-			'file_size' => $this->fileSize,
-			'data_size' => $this->dataSize,
-			'client' => $this->client,
+			'file_name'   => $this->file,
+			'file_size'   => $this->fileSize,
+			'data_size'   => $this->dataSize,
+			'client'      => $this->client,
 			'block_count' => $this->blockCount,
-			'block_size' => $this->blockSize,
-			'file_count' => $this->fileCount,
+			'block_size'  => $this->blockSize,
+			'file_count'  => $this->fileCount,
 		);
 		if ($full) {
 			$summary['file_list'] = $this->getFileList();
+		}
+		if ($this->error) {
+			$summary['error'] = $this->error;
 		}
 
 		return $summary;
@@ -158,7 +161,7 @@ class Par2Info extends ArchiveReader
 	 * format (for debugging purposes only).
 	 *
 	 * @param   boolean  $full  include all packet details in output?
-	 * @return  array    list of packets
+	 * @return  array|boolean   list of packets, or false if none available
 	 */
 	public function getPackets($full=false)
 	{
@@ -189,7 +192,7 @@ class Par2Info extends ArchiveReader
 	 * Parses the stored packets and returns a list of records for each of the
 	 * files in the recovery set.
 	 *
-	 * @return  mixed  false if no file packets available, or array of file records
+	 * @return  array|boolean  list of file records, or false if none are available
 	 */
 	public function getFileList()
 	{
@@ -245,12 +248,15 @@ class Par2Info extends ArchiveReader
 	 *
 	 * @return  mixed  Marker position, or false if none found
 	 */
-	protected function findPacketMarker()
+	public function findMarker()
 	{
+		if ($this->markerPosition !== null)
+			return $this->markerPosition;
+
 		try {
 			$buff = $this->read(min($this->length, $this->maxReadBytes));
 			$this->rewind();
-			return strpos($buff, self::PACKET_MARKER);
+			return $this->markerPosition = strpos($buff, self::PACKET_MARKER);
 		} catch (Exception $e) {
 			return false;
 		}
@@ -264,7 +270,7 @@ class Par2Info extends ArchiveReader
 	protected function analyze()
 	{
 		// Find the first Packet Marker, if there is one
-		if (($startPos = $this->findPacketMarker()) === false) {
+		if (($startPos = $this->findMarker()) === false) {
 			$this->error = 'Could not find a Packet Marker, not a valid PAR2 file';
 			return false;
 		}
@@ -304,6 +310,13 @@ class Par2Info extends ArchiveReader
 		} catch (Exception $e) {
 			if ($this->error) {$this->close(); return false;}
 			break;
+		}
+
+		// Check for valid packets
+		if (empty($this->packets)) {
+			$this->error = 'No valid PAR2 packets were found';
+			$this->close();
+			return false;
 		}
 
 		// Analysis was successful

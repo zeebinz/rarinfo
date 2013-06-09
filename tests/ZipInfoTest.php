@@ -112,14 +112,14 @@ class ZipInfoTest extends PHPUnit_Framework_TestCase
 		// Missing CDR, but has Local File record:
 		$zip->open($this->fixturesDir.'/large_file_start.zip');
 		$summary = $zip->getSummary();
-		$this->assertSame($zip->file, $summary['zip_file']);
+		$this->assertSame($zip->file, $summary['file_name']);
 		$this->assertSame($zip->fileCount, $summary['file_count']);
 		$this->assertSame(1, $summary['file_count']);
 
 		// Missing Local File record, but has CDR:
 		$zip->open($this->fixturesDir.'/large_file_end.zip');
 		$summary = $zip->getSummary();
-		$this->assertSame($zip->file, $summary['zip_file']);
+		$this->assertSame($zip->file, $summary['file_name']);
 		$this->assertSame($zip->fileCount, $summary['file_count']);
 		$this->assertSame(1, $summary['file_count']);
 	}

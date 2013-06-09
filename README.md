@@ -6,6 +6,7 @@ ArchiveReader
 Abstract base class for the various file inspectors that defines the basic API
 and implements common methods for file/data handling.
 
+- 2.5 Added support for ArchiveInfo
 - 2.4 Fixed getting file sizes on Windows without com_dotnet loaded
 - 2.3 Cleaned up code, added convert2hex() method
 - 2.2 Added support for Windows timestamps and some tweaks
@@ -23,10 +24,18 @@ and implements common methods for file/data handling.
 - 1.1 Added int64() method for handling 64-bit integers
 - 1.0 Initial release (derived from RarInfo v2.8, with bugfixes)
 
+ArchiveInfo (extends ArchiveReader)
+-----------------------------------
+Example class that provides a facade for all the readers in the library, and also
+allows recursive inspection of archives packed within archives.
+
+- 1.0 Initial release
+
 RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 4.7 Added support for ArchiveInfo
 - 4.6 Fixed handling of archives with encrypted headers
 - 4.5 Improved handling of some corrupt sources
 - 4.4 Improved analysis performance, cleaned up code, fixed b/c
@@ -77,7 +86,7 @@ Class for handling unicode filenames in RAR archive listings.
 RecursiveRarInfo (extends RarInfo, in rrarinfo.php)
 ---------------------------------------------------
 Example class for recursively inspecting the contents of RAR archives packed
-within other RAR archives.
+within other RAR archives [DEPRECATED].
 
 - 1.6 Fixes chaining of archives, adds more RAR 5.0 format tests
 - 1.5 Fixes backward-compatibility with PHP < 5.3.0
@@ -91,6 +100,7 @@ SfvInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of SFV verification files.
 
+- 1.8 Added support for ArchiveInfo
 - 1.7 Added support for byte ranges
 - 1.6 Fixed regex greediness with extra whitespaces
 - 1.5 File comments are now stored
@@ -106,6 +116,7 @@ Class for inspecting the contents of SRR files and reporting on the RAR files
 that they cover, as well as allowing extraction of any stored files that they
 might contain.
 
+- 2.0 Added support for ArchiveInfo
 - 1.9 Improved analysis performance, cleaned up code
 - 1.8 Added handling of OSO hash blocks
 - 1.7 Improved handling of invalid extraction requests
@@ -122,6 +133,7 @@ Par2Info (extends ArchiveReader)
 Class for inspecting the contents of PAR2 parity files and reporting on the
 archives that they cover.
 
+- 1.6 Added support for ArchiveInfo
 - 1.5 Improved analysis performance
 - 1.4 Added support for byte ranges
 - 1.3 Added block count to file list entries
@@ -133,6 +145,7 @@ ZipInfo (extends ArchiveReader)
 --------------------------------
 Class for inspecting the contents of ZIP archives.
 
+- 1.6 Added support for ArchiveInfo
 - 1.5 Improved analysis performance, cleaned up code
 - 1.4 Improved methods for extracting file contents
 - 1.3 Added support for byte ranges
