@@ -54,7 +54,7 @@ require_once dirname(__FILE__).'/sfvinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.1
+ * @version    1.2
  */
 class ArchiveInfo extends ArchiveReader
 {
@@ -185,7 +185,7 @@ class ArchiveInfo extends ArchiveReader
 	 */
 	public function allowsRecursion()
 	{
-		return $this->type & (self::TYPE_RAR | self::TYPE_ZIP);
+		return ($this->type == self::TYPE_RAR || $this->type == self::TYPE_ZIP);
 	}
 
 	/**

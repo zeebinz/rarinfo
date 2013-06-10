@@ -94,6 +94,8 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$files = $archive->getFileList();
 		$this->assertCount(1, $files);
 		$this->assertSame('little_file.zip', $files[0]['name']);
+		$this->assertTrue($archive->allowsRecursion());
+		$this->assertTrue($archive->containsArchive());
 
 		$zip = $archive->getArchive($files[0]['name']);
 		$this->assertSame(ArchiveInfo::TYPE_ZIP, $zip->type);
@@ -116,6 +118,8 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$files = $archive->getFileList();
 		$this->assertCount(1, $files);
 		$this->assertSame('commented.rar', $files[0]['name']);
+		$this->assertTrue($archive->allowsRecursion());
+		$this->assertTrue($archive->containsArchive());
 
 		$rar = $archive->getArchive($files[0]['name']);
 		$this->assertSame(ArchiveInfo::TYPE_RAR, $rar->type);
@@ -147,6 +151,7 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertEmpty($archive->error);
 		$this->assertSame($type, $archive->type);
 		$this->assertSame(8, $archive->fileCount);
+		$this->assertTrue($archive->allowsRecursion());
 
 		// List only the archives, as summaries
 		$files = $archive->getArchiveList(true);
@@ -156,19 +161,20 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 			// Each archive should specify its reader type
 			$this->assertArrayHasKey('main_info', $summary);
 			$this->assertArrayHasKey('main_type', $summary);
-			$this->assertInstanceOf($summary['main_info'],
-				$archive->getArchive($name)->getReader());
-			$this->assertSame($summary['main_type'],
-				$archive->getArchive($name)->type);
+			$child = $archive->getArchive($name);
+			$this->assertInstanceOf($summary['main_info'], $child->getReader());
+			$this->assertSame($summary['main_type'], $child->type);
 
 			// Any embedded archives should be listed recursively
 			$this->assertNotEmpty($summary['file_list']);
-			if ($archive->getArchive($name)->containsArchive()) {
+			if ($child->containsArchive()) {
+				$this->assertTrue($child->allowsRecursion());
 				$this->assertArrayHasKey('archives', $summary);
 				$this->assertNotEmpty($summary['archives']);
 			} else {
 				$this->assertArrayNotHasKey('archives', $summary);
 			}
+			unset($child);
 		}
 
 		// List all archive files recursively in a flat list
