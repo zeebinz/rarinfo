@@ -54,7 +54,7 @@ require_once dirname(__FILE__).'/sfvinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.0
+ * @version    1.1
  */
 class ArchiveInfo extends ArchiveReader
 {
@@ -118,7 +118,8 @@ class ArchiveInfo extends ArchiveReader
 			$summary['error'] = $this->error;
 		}
 		if ($this->reader) {
-			$summary += $this->__call('getSummary', func_get_args());
+			$args = func_get_args();
+			$summary += $this->__call('getSummary', $args);
 		}
 		if ($full && $this->containsArchive()) {
 			$summary['archives'] = $this->getArchiveList(true); // recursive
@@ -135,8 +136,10 @@ class ArchiveInfo extends ArchiveReader
 	 */
 	public function getFileList()
 	{
-		if ($this->reader)
-			return $this->__call('getFileList', func_get_args());
+		if ($this->reader) {
+			$args = func_get_args();
+			return $this->__call('getFileList', $args);
+		}
 
 		return false;
 	}
