@@ -54,7 +54,7 @@ require_once dirname(__FILE__).'/sfvinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.2
+ * @version    1.3
  */
 class ArchiveInfo extends ArchiveReader
 {
@@ -211,7 +211,7 @@ class ArchiveInfo extends ArchiveReader
 		if (!$this->reader || !$this->allowsRecursion())
 			return false;
 
-		if (empty($this->archives)) foreach ($this->getFileList() as $file) {
+		if (empty($this->archives)) foreach ($this->reader->getFileList() as $file) {
 			$ext = pathinfo($file['name'], PATHINFO_EXTENSION);
 			if (preg_match('/(rar|r[0-9]+|zip|srr|par2|sfv)/', $ext)) {
 				if ($archive = $this->getArchive($file['name'])) {
@@ -242,27 +242,22 @@ class ArchiveInfo extends ArchiveReader
 	 */
 	public function getArchive($filename)
 	{
-		if (! $this->allowsRecursion())
+		if (!$this->reader || !$this->allowsRecursion())
 			return false;
 
 		// Check the cache first
 		if (isset($this->archives[$filename]))
 			return $this->archives[$filename];
 
-		foreach ($this->getFileList(true) as $file) {
+		foreach ($this->reader->getFileList(true) as $file) {
 			if ($file['name'] == $filename && isset($file['range'])) {
 
 				// Create the new archive object
 				$archive = new self;
 
-				// Add any error messages to the object and bail early
-				if (!empty($file['compressed'])) {
-					$archive->error = 'The archive is compressed and cannot be read';
-					return $archive;
-				}
-				if (!empty($file['pass'])) {
-					$archive->error = 'The archive is encrypted and cannot be read';
-					return $archive;
+				// We shouldn't process any files that are unreadable
+				if (!empty($file['compressed']) || !empty($file['pass'])) {
+					$archive->readers = array();
 				}
 
 				// Try to parse the source file/data
@@ -272,7 +267,12 @@ class ArchiveInfo extends ArchiveReader
 				} else {
 					$archive->setData($this->data, $this->isFragment, $range);
 				}
-				if (!empty($archive->isEncrypted)) {
+
+				// Make error messages more specific
+				if (!empty($file['compressed'])) {
+					$archive->error = 'The archive is compressed and cannot be read';
+				}
+				if (!empty($file['pass']) || !empty($archive->isEncrypted)) {
 					$archive->error = 'The archive is encrypted and cannot be read';
 				}
 
@@ -301,7 +301,7 @@ class ArchiveInfo extends ArchiveReader
 		// Start with the main parent
 		if ($source == null) {
 			$source = self::MAIN_SOURCE;
-			$ret = $this->getFileList();
+			$ret = $this->reader->getFileList();
 			foreach ($ret as &$file) {$file['source'] = $source;}
 		}
 
@@ -422,7 +422,7 @@ class ArchiveInfo extends ArchiveReader
 	 */
 	public function __call($method, $args)
 	{
-		if (! $this->reader)
+		if (!$this->reader)
 			throw new BadMethodCallException(get_class($this)."::$method() is not defined");
 
 		switch (count($args)) {
@@ -469,6 +469,7 @@ class ArchiveInfo extends ArchiveReader
 		// Delegate some properties to the reader
 		unset($this->markerPosition);
 		unset($this->fileCount);
+		unset($this->error);
 
 		// Let the reader handle any files
 		if ($this->file) {

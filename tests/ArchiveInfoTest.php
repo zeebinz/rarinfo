@@ -240,9 +240,9 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertCount(3, $summary['archives']);
 		$this->assertTrue(isset($summary['archives']['compressed_rar.rar']['archives']['4mb.rar']));
 		$file = $summary['archives']['compressed_rar.rar']['archives']['4mb.rar'];
-		$this->assertEmpty($file['file_name']);
-		$this->assertSame(0, $file['file_size']);
-		$this->assertSame('0-0', $file['use_range']);
+		$this->assertSame($rar->file, $file['file_name']);
+		$this->assertSame(7893, $file['file_size']);
+		$this->assertSame('7420-7878', $file['use_range']);
 		$this->assertContains('archive is compressed', $file['error']);
 		unset($summary);
 
