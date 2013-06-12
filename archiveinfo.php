@@ -291,10 +291,14 @@ class ArchiveInfo extends ArchiveReader
 	 *
 	 * If $all is set to true, the file lists of all the supported archive types
 	 * will be merged in the flat list, not just those that allow recursion. This
-	 * should be used with caution, as the output varies between readers and only
-	 * the 'name' and 'source' fields are guaranteed. For example, file data can
-	 * only be extracted if a 'range' field is present. It's really just handy for
-	 * inspecting all known file names, and little else.
+	 * should be used with caution, as the output varies between readers and the
+	 * only guaranteed results are:
+	 *
+	 *     array('name'  => '...', 'source' => '...') or:
+	 *     array('error' => '...', 'source' => '...')
+	 *
+	 * It's really just handy for inspecting all known file names in the laziest
+	 * way possible, and not much more than that.
 	 *
 	 * @param   boolean  $recurse   list all archive contents recursively?
 	 * @param   string   $all       include all supported archive file lists?
@@ -305,7 +309,6 @@ class ArchiveInfo extends ArchiveReader
 	{
 		if (!$this->reader) {return false;}
 		$ret = array();
-		$chldren = array();
 
 		// Start with the main parent
 		if ($source == null) {
