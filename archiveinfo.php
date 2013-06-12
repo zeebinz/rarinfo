@@ -54,7 +54,7 @@ require_once dirname(__FILE__).'/sfvinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.3
+ * @version    1.4
  */
 class ArchiveInfo extends ArchiveReader
 {
@@ -289,28 +289,38 @@ class ArchiveInfo extends ArchiveReader
 	 * recursing through all embedded archives as well, with a 'source' field
 	 * added to each item that includes the archive source path.
 	 *
+	 * If $all is set to true, the file lists of all the supported archive types
+	 * will be merged in the flat list, not just those that allow recursion. This
+	 * should be used with caution, as the output varies between readers and only
+	 * the 'name' and 'source' fields are guaranteed. For example, file data can
+	 * only be extracted if a 'range' field is present. It's really just handy for
+	 * inspecting all known file names, and little else.
+	 *
 	 * @param   boolean  $recurse   list all archive contents recursively?
-	 * @param   string   $source    the archive source of the file item
+	 * @param   string   $all       include all supported archive file lists?
+	 * @param   string   $source    [ignore, for internal use only]
 	 * @return  array|boolean  the flat archive file list, or false on error
 	 */
-	public function getArchiveFileList($recurse=true, $source=null)
+	public function getArchiveFileList($recurse=true, $all=false, $source=null)
 	{
 		if (!$this->reader) {return false;}
 		$ret = array();
+		$chldren = array();
 
 		// Start with the main parent
 		if ($source == null) {
 			$source = self::MAIN_SOURCE;
-			$ret = $this->reader->getFileList();
-			foreach ($ret as &$file) {$file['source'] = $source;}
+			if ($ret = $this->reader->getFileList()) {
+				$ret = $this->flattenFileList($ret, $source, $all);
+			}
 		}
 
 		// Merge each archive file list
 		if ($recurse && $this->containsArchive()) {
 			foreach ($this->getArchiveList() as $name => $archive) {
 
-				// Only recurse through valid archive types
-				if (empty($archive->error) && !$archive->allowsRecursion())
+				// Only include the file lists of types that allow recursion?
+				if (empty($archive->error) && !$all && !$archive->allowsRecursion())
 					continue;
 				$branch = $source.' > '.$name;
 
@@ -322,10 +332,9 @@ class ArchiveInfo extends ArchiveReader
 				}
 
 				// Otherwise merge recursively
-				foreach ($files as &$file) {$file['source'] = $branch;}
-				$ret = array_merge($ret, $files);
+				$ret = array_merge($ret, $this->flattenFileList($files, $branch, $all));
 				if ($archive->containsArchive()) {
-					$ret = array_merge($ret, $archive->getArchiveFileList(true, $branch));
+					$ret = array_merge($ret, $archive->getArchiveFileList(true, $all, $branch));
 				}
 			}
 		}
@@ -542,6 +551,33 @@ class ArchiveInfo extends ArchiveReader
 		}
 
 		return false;
+	}
+
+	/**
+	 * Helper method that flattens a file list that may have children, removes keys
+	 * and re-indexes, then adds a source path field to each item.
+	 *
+	 * @param   array    $files   the file list to flatten
+	 * @param   string   $source  the current source path info
+	 * @param   boolean  $all     should any child lists be included?
+	 * @return  array  the flat file list
+	 */
+	protected function flattenFileList(array $files, $source, $all=false)
+	{
+		$files = array_values($files);
+		$children = array();
+		foreach ($files as &$file) {
+			$file['source'] = $source;
+			if ($all && !empty($file['files'])) foreach ($file['files'] as $child) {
+				$child['source'] = $source.' > '.$file['name'];
+				$children[] = $child;
+			}
+		}
+		if (!empty($children)) {
+			$files = array_merge($files, $children);
+		}
+
+		return $files;
 	}
 
 	/**

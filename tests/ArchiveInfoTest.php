@@ -202,6 +202,59 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 	}
 
 	/**
+	 * We should also be able to produce a flat list that combines all embedded
+	 * archive file lists, even if they don't support recursion, so we can easily
+	 * inspect all known file names ... if not much else.
+	 *
+	 * @depends  testListsAllEmbeddedArchiveFilesRecursively
+	 * @dataProvider  providerSampleFiles
+	 * @param  string  $file  the sample filename
+	 * @param  string  $type  the sample type
+	 */
+	public function testCanMergeAllEmbeddedArchiveFileLists($file, $type)
+	{
+		$archive = new ArchiveInfo;
+		$archive->open($this->fixturesDir.$file);
+		$this->assertEmpty($archive->error);
+
+		// Merge all available file lists in one flat list
+		$files = $archive->getArchiveFileList(true, true);
+		$this->assertCount(31, $files);
+		usort($files, function($a, $b) {
+			return strcasecmp($a['name'].': '.$a['source'], $b['name'].': '.$b['source']);
+		});
+
+		// SRR file list item
+		$this->assertSame('store_little.srr', $files[12]['name']);
+		$this->assertSame('main', $files[12]['source']);
+		$this->assertFalse($archive->getArchive($files[12]['name'])->allowsRecursion());
+		$this->assertSame('store_little.rar', $files[11]['name']);
+		$this->assertSame('main > store_little.srr', $files[11]['source']);
+		$this->assertArrayHasKey('files', $files[11]);
+		$this->assertCount(1, $files[11]['files']);
+		$this->assertSame('little_file.txt', $files[6]['name']);
+		$this->assertSame('main > store_little.srr > store_little.rar', $files[6]['source']);
+		$this->assertArrayNotHasKey('range', $files[6]);
+
+		// PAR2 file list item
+		$this->assertSame('testdata.par2', $files[24]['name']);
+		$this->assertSame('main', $files[24]['source']);
+		$this->assertFalse($archive->getArchive($files[24]['name'])->allowsRecursion());
+		$this->assertSame('test-0.data', $files[13]['name']);
+		$this->assertSame('main > testdata.par2', $files[13]['source']);
+		$this->assertArrayHasKey('hash', $files[13]);
+		$this->assertArrayHasKey('blocks', $files[13]);
+
+		// SFV file list item
+		$this->assertSame('test001.sfv', $files[23]['name']);
+		$this->assertSame('main', $files[23]['source']);
+		$this->assertFalse($archive->getArchive($files[23]['name'])->allowsRecursion());
+		$this->assertSame('testrar.r00', $files[25]['name']);
+		$this->assertSame('main > test001.sfv', $files[25]['source']);
+		$this->assertArrayHasKey('checksum', $files[25]);
+	}
+
+	/**
 	 * Provides info for sample files containing all supported archive types.
 	 */
 	public function providerSampleFiles()
