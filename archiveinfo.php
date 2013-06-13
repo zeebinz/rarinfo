@@ -54,7 +54,7 @@ require_once dirname(__FILE__).'/sfvinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.4
+ * @version    1.5
  */
 class ArchiveInfo extends ArchiveReader
 {
@@ -571,8 +571,12 @@ class ArchiveInfo extends ArchiveReader
 		$children = array();
 		foreach ($files as &$file) {
 			$file['source'] = $source;
+			if ($source != self::MAIN_SOURCE) {
+				unset($file['next_offset']);
+			}
 			if ($all && !empty($file['files'])) foreach ($file['files'] as $child) {
 				$child['source'] = $source.' > '.$file['name'];
+				unset($child['next_offset']);
 				$children[] = $child;
 			}
 		}

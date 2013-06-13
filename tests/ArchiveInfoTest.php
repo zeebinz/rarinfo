@@ -184,6 +184,13 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 			return strcasecmp($a['name'].': '.$a['source'], $b['name'].': '.$b['source']);
 		});
 
+		// Only the main files should include a next_offset value
+		foreach ($files as $file) {
+			if ($file['source'] != ArchiveInfo::MAIN_SOURCE) {
+				$this->assertArrayNotHasKey('next_offset', $file);
+			}
+		}
+
 		// File packed in RAR in ZIP:
 		$this->assertSame('commented.rar', $files[1]['name']);
 		$this->assertSame('main > rar_in_zip.zip', $files[1]['source']);
