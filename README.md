@@ -151,6 +151,7 @@ ZipInfo (extends ArchiveReader)
 --------------------------------
 Class for inspecting the contents of ZIP archives.
 
+- 1.7 Fixed finding the marker signature
 - 1.6 Added support for ArchiveInfo
 - 1.5 Improved analysis performance, cleaned up code
 - 1.4 Improved methods for extracting file contents
