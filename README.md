@@ -105,6 +105,7 @@ SfvInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of SFV verification files.
 
+- 1.9 Added use_range value to getSummary() output
 - 1.8 Added support for ArchiveInfo
 - 1.7 Added support for byte ranges
 - 1.6 Fixed regex greediness with extra whitespaces

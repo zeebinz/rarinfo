@@ -63,6 +63,7 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame($list, $summary['file_list']);
 		$this->assertSame($filecount, $summary['file_count']);
 		$this->assertSame(filesize($source), $summary['file_size']);
+		$this->assertSame('0-'.($summary['file_size'] - 1), $summary['use_range']);
 		$this->assertEmpty($summary['data_size']);
 
 		// The same results should be returned when data is set directly
@@ -77,6 +78,7 @@ class SfvInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame($filecount, $summary['file_count']);
 		$this->assertEmpty($summary['file_size']);
 		$this->assertSame(filesize($source), $summary['data_size']);
+		$this->assertSame('0-'.($summary['data_size'] - 1), $summary['use_range']);
 	}
 
 	/**
