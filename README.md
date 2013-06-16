@@ -123,6 +123,7 @@ Class for inspecting the contents of SRR files and reporting on the RAR files
 that they cover, as well as allowing extraction of any stored files that they
 might contain.
 
+- 2.1 Added stricter check for SRR Marker block
 - 2.0 Added support for ArchiveInfo
 - 1.9 Improved analysis performance, cleaned up code
 - 1.8 Added handling of OSO hash blocks
