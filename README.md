@@ -29,8 +29,9 @@ ArchiveInfo (extends ArchiveReader)
 Example class that provides a facade for all the readers in the library, and also
 allows recursive inspection of archives packed within archives.
 
+- 1.6 Added method for setting the readers list per instance
 - 1.5 Restricted next_offset values to main archive files only
-- 1.4 Adds option for getArchiveFileList() to merge all archive file lists
+- 1.4 Added option for getArchiveFileList() to merge all archive file lists
 - 1.3 Improved performance and error reporting
 - 1.2 Fixed allowsRecursion() method to return only booleans
 - 1.1 Fixed backward-compatibility with PHP < 5.3.0

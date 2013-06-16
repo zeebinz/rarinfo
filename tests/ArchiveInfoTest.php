@@ -273,6 +273,56 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 	}
 
 	/**
+	 * We should also be able to set the list of reader classes to be used by the
+	 * current instance, overriding the defaults, and optionally force any embedded
+	 * archives to inherit this readers list.
+	 *
+	 * @depends  testAutomaticallyDetectsSupportedArchiveTypes
+	 */
+	public function testAllowsSettingCustomReadersList()
+	{
+		$archive = new ArchiveInfo;
+
+		// Without inheritance
+		$archive->setReaders(array(ArchiveInfo::TYPE_RAR => 'RarInfo'));
+		$archive->open($this->fixturesDir.'/misc/misc_in_rar.rar');
+		$this->assertEmpty($archive->error);
+		$this->assertSame(ArchiveInfo::TYPE_RAR, $archive->type);
+		$this->assertSame(8, $archive->fileCount);
+		$zip = $archive->getArchive('little_file.zip');
+		$this->assertEmpty($zip->error);
+		$this->assertSame(ArchiveInfo::TYPE_ZIP, $zip->type);
+
+		$archive->open($this->fixturesDir.'/par2/testdata.par2');
+		$this->assertNotEmpty($archive->error);
+		$this->assertContains('not a supported archive', $archive->error);
+		$this->assertSame(ArchiveInfo::TYPE_NONE, $archive->type);
+		$this->assertSame(0, $archive->fileCount);
+
+		$archive->setReaders(array(
+			ArchiveInfo::TYPE_RAR  => 'RarInfo',
+			ArchiveInfo::TYPE_PAR2 => 'Par2Info',
+		));
+
+		$archive->open($this->fixturesDir.'/par2/testdata.par2');
+		$this->assertEmpty($archive->error);
+		$this->assertSame(ArchiveInfo::TYPE_PAR2, $archive->type);
+		$this->assertSame(10, $archive->fileCount);
+
+		// With inheritance
+		$archive->setReaders(array(ArchiveInfo::TYPE_RAR => 'RarInfo'), true);
+		$archive->open($this->fixturesDir.'/misc/misc_in_rar.rar');
+		$this->assertEmpty($archive->error);
+		$this->assertSame(ArchiveInfo::TYPE_RAR, $archive->type);
+		$this->assertSame(8, $archive->fileCount);
+
+		$zip = $archive->getArchive('little_file.zip');
+		$this->assertNotEmpty($zip->error);
+		$this->assertContains('not a supported archive', $zip->error);
+		$this->assertSame(ArchiveInfo::TYPE_NONE, $zip->type);
+	}
+
+	/**
 	 * This class should work identically to RarInfo, except we should also be able
 	 * to handle any embedded RAR archives, either as chainable objects or within
 	 * flat file lists. The enhanced summary output should display the full nested
