@@ -49,7 +49,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    4.7
+ * @version    4.8
  */
 class RarInfo extends ArchiveReader
 {
@@ -699,13 +699,12 @@ class RarInfo extends ArchiveReader
 		// Not supported for RAR 5.0
 		if ($this->format == self::FMT_RAR50) {return false;}
 
-		$fail  = 0;
-		$fail += ($block['host_os'] > 5);
-		$fail += ($block['method'] > 0x35);
-		$fail += ($block['unp_ver'] > 5);
-		$fail += ($block['name_size'] > $this->maxFilenameLength);
-		$fail += ($block['pack_size'] > PHP_INT_MAX);
-		$fail += (isset($block['salt']) && !isset($block['has_password']));
+		$fail = ($block['host_os'] > 5)
+		      + ($block['method'] > 0x35)
+		      + ($block['unp_ver'] > 50)
+		      + ($block['name_size'] > $this->maxFilenameLength)
+		      + ($block['pack_size'] > PHP_INT_MAX)
+		      + (isset($block['salt']) && !isset($block['has_password']));
 
 		return $fail < $limit;
 	}
@@ -831,9 +830,9 @@ class RarInfo extends ArchiveReader
 
 		// Check for add_size field
 		if (($block['head_flags'] & self::LONG_BLOCK)
-			&& ($block['head_type'] != self::BLOCK_FILE)
-			&& ($block['head_type'] != self::BLOCK_SUB)
-			) {
+		 && ($block['head_type'] != self::BLOCK_FILE)
+		 && ($block['head_type'] != self::BLOCK_SUB)
+		) {
 			$block += self::unpack('Vadd_size', $this->read(4));
 		} else {
 			$block['add_size'] = 0;
