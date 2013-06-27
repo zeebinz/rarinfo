@@ -320,6 +320,15 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertNotEmpty($zip->error);
 		$this->assertContains('not a supported archive', $zip->error);
 		$this->assertSame(ArchiveInfo::TYPE_NONE, $zip->type);
+
+		$archive->setReaders(array(
+			ArchiveInfo::TYPE_RAR  => 'RarInfo',
+			ArchiveInfo::TYPE_ZIP  => 'ZipInfo',
+		), true);
+
+		$zip = $archive->getArchive('little_file.zip');
+		$this->assertEmpty($zip->error);
+		$this->assertSame(ArchiveInfo::TYPE_ZIP, $zip->type);
 	}
 
 	/**

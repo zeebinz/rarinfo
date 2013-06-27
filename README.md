@@ -29,6 +29,7 @@ ArchiveInfo (extends ArchiveReader)
 Example class that provides a facade for all the readers in the library, and also
 allows recursive inspection of archives packed within archives.
 
+- 1.7 Added ability to reset the readers list dynamically
 - 1.6 Added method for setting the readers list per instance
 - 1.5 Restricted next_offset values to main archive files only
 - 1.4 Added option for getArchiveFileList() to merge all archive file lists
@@ -41,7 +42,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
-- 4.8 Tweaks File header sanity check
+- 4.8 Tweaked File header sanity check
 - 4.7 Added support for ArchiveInfo
 - 4.6 Fixed handling of archives with encrypted headers
 - 4.5 Improved handling of some corrupt sources

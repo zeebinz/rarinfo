@@ -71,7 +71,7 @@ require_once dirname(__FILE__).'/sfvinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.6
+ * @version    1.7
  */
 class ArchiveInfo extends ArchiveReader
 {
@@ -128,6 +128,9 @@ class ArchiveInfo extends ArchiveReader
 	{
 		$this->readers = $readers;
 		$this->inheritReaders = $recursive;
+		if ($recursive) {
+			$this->archives = array();
+		}
 	}
 
 	/**
@@ -454,7 +457,7 @@ class ArchiveInfo extends ArchiveReader
 	 * Magic method for accessing the properties of the stored reader.
 	 *
 	 * @param   string  $name  the property name
-	 * @return  mixed   the propery value
+	 * @return  mixed   the property value
 	 */
 	public function __get($name)
 	{
