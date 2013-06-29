@@ -71,7 +71,7 @@ require_once dirname(__FILE__).'/sfvinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.7
+ * @version    1.8
  */
 class ArchiveInfo extends ArchiveReader
 {
@@ -253,10 +253,11 @@ class ArchiveInfo extends ArchiveReader
 
 		if (empty($this->archives)) foreach ($this->reader->getFileList() as $file) {
 			$ext = pathinfo($file['name'], PATHINFO_EXTENSION);
-			if (preg_match('/(rar|r[0-9]+|zip|srr|par2|sfv)/', $ext)) {
-				if ($archive = $this->getArchive($file['name'])) {
-					$this->archives[$file['name']] = $archive;
-				}
+			if (preg_match('/(rar|r[0-9]+|zip|srr|par2|sfv)/', $ext)
+			    && ($archive = $this->getArchive($file['name']))
+			    && ($archive->type != self::TYPE_NONE || empty($archive->readers))
+			) {
+				$this->archives[$file['name']] = $archive;
 			}
 		}
 		if ($summary) {

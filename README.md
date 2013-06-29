@@ -29,6 +29,7 @@ ArchiveInfo (extends ArchiveReader)
 Example class that provides a facade for all the readers in the library, and also
 allows recursive inspection of archives packed within archives.
 
+- 1.8 Restricted stored archives to supported types only
 - 1.7 Added ability to reset the readers list dynamically
 - 1.6 Added method for setting the readers list per instance
 - 1.5 Restricted next_offset values to main archive files only

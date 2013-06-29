@@ -315,17 +315,35 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertEmpty($archive->error);
 		$this->assertSame(ArchiveInfo::TYPE_RAR, $archive->type);
 		$this->assertSame(8, $archive->fileCount);
-
+		$this->assertCount(4, $archive->getArchiveList());
+		foreach ($archive->getArchiveList() as $supported) {
+			$this->assertSame(ArchiveInfo::TYPE_RAR, $supported->type);
+		}
+		$this->assertCount(12, $archive->getArchiveFileList(true));
+		foreach ($archive->getArchiveFileList(true) as $file) {
+			$this->assertArrayNotHasKey('error', $file);
+		}
 		$zip = $archive->getArchive('little_file.zip');
 		$this->assertNotEmpty($zip->error);
 		$this->assertContains('not a supported archive', $zip->error);
 		$this->assertSame(ArchiveInfo::TYPE_NONE, $zip->type);
 
 		$archive->setReaders(array(
-			ArchiveInfo::TYPE_RAR  => 'RarInfo',
-			ArchiveInfo::TYPE_ZIP  => 'ZipInfo',
+			ArchiveInfo::TYPE_RAR => 'RarInfo',
+			ArchiveInfo::TYPE_ZIP => 'ZipInfo',
 		), true);
 
+		$this->assertCount(5, $archive->getArchiveList());
+		foreach ($archive->getArchiveList() as $supported) {
+			$this->assertTrue(
+				$supported->type == ArchiveInfo::TYPE_RAR ||
+				$supported->type == ArchiveInfo::TYPE_ZIP
+			);
+		}
+		$this->assertCount(15, $archive->getArchiveFileList(true));
+		foreach ($archive->getArchiveFileList(true) as $file) {
+			$this->assertArrayNotHasKey('error', $file);
+		}
 		$zip = $archive->getArchive('little_file.zip');
 		$this->assertEmpty($zip->error);
 		$this->assertSame(ArchiveInfo::TYPE_ZIP, $zip->type);
