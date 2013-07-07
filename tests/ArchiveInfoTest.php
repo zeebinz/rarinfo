@@ -262,6 +262,32 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 	}
 
 	/**
+	 * We should be able to retrieve an embedded archive object from its source
+	 * path string.
+	 *
+	 * @depends  testHandlesEmbeddedArchiveTypes
+	 * @dataProvider  providerSampleFiles
+	 * @param  string  $file  the sample filename
+	 * @param  string  $type  the sample type
+	 */
+	public function testCanGetArchiveFromSourceString($file, $type)
+	{
+		$archive = new ArchiveInfo;
+		$archive->open($this->fixturesDir.$file);
+		$this->assertEmpty($archive->error);
+
+		$source = 'main > rar_in_zip.zip > commented.rar';
+		$rar = $archive->getArchiveFromSource($source);
+		$this->assertInstanceOf('ArchiveInfo', $rar);
+		$this->assertInstanceOf('RarInfo', $rar->getReader());
+		$this->assertSame(1, $rar->fileCount);
+
+		$source = 'main > foo.rar';
+		$rar = $archive->getArchiveFromSource($source);
+		$this->assertFalse($rar);
+	}
+
+	/**
 	 * Provides info for sample files containing all supported archive types.
 	 */
 	public function providerSampleFiles()
@@ -585,6 +611,238 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(1, $file['compressed']);
 		$this->assertSame(1, $file['pass']);
 		$this->assertSame('4194641-4194672', $file['range']);
+	}
+
+	/**
+	 * Provides the path to the external Unrar executable, or false if it
+	 * doesn't exist in the given directory.
+	 *
+	 * @return  string|boolean  the absolute path to the executable, or false
+	 */
+	protected function getUnrarPath()
+	{
+		$unrar = DIRECTORY_SEPARATOR === '\\'
+			? dirname(__FILE__).'\bin\unrar\UnRAR.exe'
+			: dirname(__FILE__).'/bin/unrar/unrar';
+
+		if (file_exists($unrar))
+			return $unrar;
+
+		return false;
+	}
+
+	/**
+	 * If we have an external Unrar client configured, we should be able to extract
+	 * compressed files.
+	 *
+	 * @group  external
+	 */
+	public function testExtractsFilesWithExternalUnrarClient()
+	{
+		if (!($unrar = $this->getUnrarPath())) {
+			$this->markTestSkipped();
+		}
+		$archive = new ArchiveInfo;
+		$rarfile = $this->fixturesDir.'/rar/4mb.rar';
+
+		$archive->setExternalClients(array(ArchiveInfo::TYPE_RAR => $unrar));
+		$this->assertEmpty($archive->error);
+
+		// From a file source
+		$archive->open($rarfile);
+		$this->assertEmpty($archive->error);
+		$files = $archive->getFileList();
+		$file = $files[0];
+		$this->assertSame('4mb.txt', $file['name']);
+		$this->assertSame(1, $file['compressed']);
+
+		$data = $archive->extractFile($file['name']);
+		$this->assertEmpty($archive->error);
+		$this->assertSame($file['size'], strlen($data));
+		$this->assertStringStartsWith('0123456789', $data);
+		$this->assertStringEndsWith('6789012345', $data);
+
+		// From a data source
+		$archive->setData(file_get_contents($rarfile));
+		$this->assertEmpty($archive->error);
+		$files = $archive->getFileList();
+		$file = $files[0];
+		$this->assertSame('4mb.txt', $file['name']);
+		$this->assertSame(1, $file['compressed']);
+
+		$data = $archive->extractFile($file['name']);
+		$this->assertEmpty($archive->error);
+		$this->assertSame($file['size'], strlen($data));
+		$this->assertStringStartsWith('0123456789', $data);
+		$this->assertStringEndsWith('6789012345', $data);
+	}
+
+	/**
+	 * Extracting with an external client should work recursively, too.
+	 *
+	 * @depends testExtractsFilesWithExternalUnrarClient
+	 * @group   external
+	 */
+	public function testExtractsEmbeddedFilesWithExternalUnrarClient()
+	{
+		if (!($unrar = $this->getUnrarPath())) {
+			$this->markTestSkipped();
+		}
+		$archive = new ArchiveInfo;
+		$archive->open($this->fixturesDir.'/rar/embedded_rars.rar');
+		$this->assertEmpty($archive->error);
+
+		$files = $archive->getArchiveFileList();
+		$file = $files[13];
+		$this->assertSame('4mb.rar', $file['name']);
+		$this->assertSame('main > compressed_rar.rar', $file['source']);
+		$this->assertSame(1, $file['compressed']);
+		$compressedSize = strlen($archive->getFileData($file['name'], $file['source']));
+		$this->assertArrayHasKey('error', $files[14]);
+
+		$data = $archive->extractFile($file['name'], null, null, $file['source']);
+		$this->assertContains('external client', $archive->error);
+
+		$archive->setExternalClients(array(ArchiveInfo::TYPE_RAR => $unrar));
+		$this->assertEmpty($archive->error);
+		$data = $archive->extractFile($file['name'], null, null, $file['source']);
+		$this->assertEmpty($archive->error);
+		$this->assertSame($file['size'], strlen($data));
+		$this->assertSame($compressedSize, strlen($archive->getFileData($file['name'], $file['source'])));
+
+		$files = $archive->getArchiveFileList();
+		$file = $files[14];
+		$this->assertArrayNotHasKey('error', $files[14]);
+		$this->assertSame('4mb.txt', $file['name']);
+		$this->assertSame('main > compressed_rar.rar > 4mb.rar', $file['source']);
+		$this->assertSame(1, $file['compressed']);
+		$compressedSize = strlen($archive->getFileData($file['name'], $file['source']));
+
+		$data = $archive->extractFile($file['name'], null, null, $file['source']);
+		$this->assertEmpty($archive->error);
+		$this->assertSame($file['size'], strlen($data));
+		$this->assertStringStartsWith('0123456789', $data);
+		$this->assertStringEndsWith('6789012345', $data);
+		$this->assertSame($compressedSize, strlen($archive->getFileData($file['name'], $file['source'])));
+
+		// Broken file (checksum error)
+		$file = $files[11];
+		$this->assertArrayNotHasKey('error', $file);
+		$this->assertSame('file2.txt', $file['name']);
+		$this->assertSame('main > embedded_1_rar.rar > embedded_2_rar.rar > multi.part1.rar', $file['source']);
+		$this->assertSame(1, $file['compressed']);
+		$data = $archive->extractFile($file['name'], null, null, $file['source']);
+		$this->assertNotEmpty($archive->error);
+		$this->assertContains('checksum error', $archive->error);
+		$this->assertEmpty($data);
+	}
+
+	/**
+	 * Provides the path to the external 7z client executable, or false if it
+	 * doesn't exist in the given directory.
+	 *
+	 * @return  string|boolean  the absolute path to the executable, or false
+	 */
+	protected function get7zPath()
+	{
+		$bin = DIRECTORY_SEPARATOR === '\\'
+			? dirname(__FILE__).'\bin\7z\7za.exe'
+			: dirname(__FILE__).'/bin/7z/7za';
+
+		if (file_exists($bin))
+			return $bin;
+
+		return false;
+	}
+
+	/**
+	 * Recursive extraction using external clients should allows us to inspect and
+	 * extract any embedded compressed archives or files transparently, regardless
+	 * of the archive type.
+	 *
+	 * @depends testExtractsEmbeddedFilesWithExternalUnrarClient
+	 * @group   external
+	 */
+	public function testExtractsEmbeddedFilesWithMultipleExternalClients()
+	{
+		if (!($unrar = $this->getUnrarPath()) || !($unzip = $this->get7zPath())) {
+			$this->markTestSkipped();
+		}
+
+		$archive = new ArchiveInfo;
+		$archive->setExternalClients(array(
+			ArchiveInfo::TYPE_RAR => $unrar,
+			ArchiveInfo::TYPE_ZIP => $unzip,
+		));
+		$this->assertEmpty($archive->error);
+
+		// ZIP within RAR
+		$archive->open($this->fixturesDir.'/misc/zip_comp_in_rar.rar');
+		$this->assertEmpty($archive->error);
+		$files = $archive->getFileList();
+		$this->assertCount(1, $files);
+		$this->assertSame('pecl_test.zip', $files[0]['name']);
+		$this->assertSame(1, $files[0]['compressed']);
+
+		$files = $archive->getArchiveFileList(true);
+		$this->assertCount(5, $files);
+		$file = $files[4];
+		$this->assertSame('entry1.txt', $file['name']);
+		$this->assertSame('main > pecl_test.zip', $file['source']);
+		$this->assertSame(8, $file['size']);
+		$this->assertSame(1, $file['compressed']);
+
+		$text = $archive->extractFile($file['name'], null, null, $file['source']);
+		$this->assertSame($file['size'], strlen($text));
+		$this->assertSame('entry #1', $text);
+
+		// RAR within ZIP
+		$archive->open($this->fixturesDir.'/misc/rar_comp_in_zip.zip');
+		$this->assertEmpty($archive->error);
+		$files = $archive->getFileList();
+		$this->assertCount(1, $files);
+		$this->assertSame('4mb.rar', $files[0]['name']);
+		$this->assertSame(1, $files[0]['compressed']);
+
+		$files = $archive->getArchiveFileList(true);
+		$this->assertCount(2, $files);
+		$file = $files[1];
+		$this->assertSame('4mb.txt', $file['name']);
+		$this->assertSame('main > 4mb.rar', $file['source']);
+		$this->assertSame(4194304, $file['size']);
+		$this->assertSame(1, $file['compressed']);
+
+		$text = $archive->extractFile($file['name'], null, null, $file['source']);
+		$this->assertSame($file['size'], strlen($text));
+		$this->assertStringEndsWith('6789012345', $text);
+
+		// RAR & ZIP within RAR
+		$archive->open($this->fixturesDir.'/misc/misc_comp_in_rar.rar');
+		$this->assertEmpty($archive->error);
+		$files = $archive->getArchiveFileList(true);
+		$this->assertCount(9, $files);
+
+		$file = $files[0];
+		$this->assertSame('rar_comp_in_zip.zip', $file['name']);
+		$this->assertSame('main', $file['source']);
+		$this->assertSame(0, $file['compressed']);
+		$file = $files[3];
+		$this->assertSame('4mb.txt', $file['name']);
+		$this->assertSame('main > rar_comp_in_zip.zip > 4mb.rar', $file['source']);
+		$this->assertSame(1, $file['compressed']);
+		$text = $archive->extractFile($file['name'], null, null, $file['source']);
+		$this->assertStringEndsWith('6789012345', $text);
+
+		$file = $files[1];
+		$this->assertSame('zip_comp_in_rar.rar', $file['name']);
+		$this->assertSame('main', $file['source']);
+		$this->assertSame(0, $file['compressed']);
+		$file = $files[8];
+		$this->assertSame('entry1.txt', $file['name']);
+		$this->assertSame(1, $file['compressed']);
+		$this->assertSame('main > zip_comp_in_rar.rar > pecl_test.zip', $file['source']);
+		$text = $archive->extractFile($file['name'], null, null, $file['source']);
+		$this->assertSame('entry #1', $text);
 	}
 
 } // End ArchiveInfoTest
