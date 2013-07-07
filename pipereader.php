@@ -15,7 +15,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.0
+ * @version    1.1
  */
 class PipeReader
 {
@@ -198,7 +198,7 @@ class PipeReader
 	 * Stream handle for the current pipe.
 	 * @var resource
 	 */
-	public $handle;
+	protected $handle;
 
 	/**
 	 * The maximum number of bytes to read in one operation.
