@@ -133,7 +133,6 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$this->assertSame('File does not exist (missingfile)', $archive->error);
 	}
 
-
 	/**
 	 * Data can be passed directly to the instance via the setData() method, with
 	 * any errors reported via the public $error property.
@@ -296,6 +295,29 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$this->assertRegExp('/range.*is invalid/', $archive->error);
 	}
 
+	/**
+	 * We need to be able to save any stored data to temporary files so that we
+	 * can e.g. extract the archive contents using an external client. These
+	 * temporary files should be deleted on reset or destruct.
+	 *
+	 * @depends testHandlesDataFromMemory
+	 */
+	public function testCanSaveDataToTemporaryFiles()
+	{
+		$archive = new TestArchiveReader;
+		$data = file_get_contents($this->testFile);
+
+		$archive->setData($data);
+		$temp = $archive->createTempDataFile();
+		$name = pathinfo($temp, PATHINFO_FILENAME);
+		$this->assertArrayHasKey($name, $archive->tempFiles);
+		$this->assertSame($temp, $archive->tempFiles[$name]);
+		$this->assertFileExists($temp);
+		$this->assertSame(strlen($data), filesize($temp));
+		unset($archive);
+		$this->assertFileNotExists($temp);
+	}
+
 } // End ArchiveReaderTest
 
 class TestArchiveReader extends ArchiveReader
@@ -334,15 +356,16 @@ class TestArchiveReader extends ArchiveReader
 	public $length = 0;
 	public $start = 0;
 	public $end = 0;
+	public $tempFiles = array();
 
 	public function seek($pos)
 	{
 		parent::seek($pos);
 	}
 
-	public function read($num)
+	public function read($num, $confirm=true)
 	{
-		return parent::read($num);
+		return parent::read($num, $confirm);
 	}
 
 	public function tell()
@@ -353,5 +376,10 @@ class TestArchiveReader extends ArchiveReader
 	public function getRange(array $range)
 	{
 		return parent::getRange($range);
+	}
+
+	public function createTempDataFile()
+	{
+		return parent::createTempDataFile();
 	}
 }
