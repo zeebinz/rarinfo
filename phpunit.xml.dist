@@ -5,6 +5,7 @@
 		<testsuite name="Archive Tools Tests">
 			<directory>./tests</directory>
 			<exclude>./tests/fixtures</exclude>
+			<exclude>./tests/bin</exclude>
 		</testsuite>
 	</testsuites>
 </phpunit>

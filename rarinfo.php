@@ -1,6 +1,7 @@
 <?php
 
 require_once dirname(__FILE__).'/archivereader.php';
+require_once dirname(__FILE__).'/pipereader.php';
 
 /**
  * RarInfo class.
@@ -49,7 +50,7 @@ require_once dirname(__FILE__).'/archivereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    4.8
+ * @version    4.9
  */
 class RarInfo extends ArchiveReader
 {
@@ -471,8 +472,8 @@ class RarInfo extends ArchiveReader
 	}
 
 	/**
-	 * Extracts the data for the given filename. Note that this is only useful if
-	 * the file isn't compressed (Store method only supported).
+	 * Retrieves the raw data for the given filename. Note that this is only useful
+	 * if the file isn't compressed.
 	 *
 	 * @param   string  $filename  name of the file to extract
 	 * @return  string|boolean  file data, or false on error
@@ -484,17 +485,18 @@ class RarInfo extends ArchiveReader
 			return false;
 
 		// Get the absolute start/end positions
-		if (!($range = $this->getFileRangeInfo($filename))) {
+		if (!($info = $this->getFileInfo($filename)) || empty($info['range'])) {
 			$this->error = "Could not find file info for: ({$filename})";
 			return false;
 		}
+		$this->error = '';
 
-		return $this->getRange($range);
+		return $this->getRange(explode('-', $info['range']));
 	}
 
 	/**
-	 * Saves the data for the given filename to the given destination. This is
-	 * only useful if the file isn't compressed (Store method only supported).
+	 * Saves the raw data for the given filename to the given destination. This
+	 * is only useful if the file isn't compressed.
 	 *
 	 * @param   string   $filename     name of the file to extract
 	 * @param   string   $destination  full path of the file to create
@@ -507,12 +509,104 @@ class RarInfo extends ArchiveReader
 			return false;
 
 		// Get the absolute start/end positions
-		if (!($range = $this->getFileRangeInfo($filename))) {
+		if (!($info = $this->getFileInfo($filename)) || empty($info['range'])) {
 			$this->error = "Could not find file info for: ({$filename})";
 			return false;
 		}
+		$this->error = '';
 
-		return $this->saveRange($range, $destination);
+		return $this->saveRange(explode('-', $info['range']), $destination);
+	}
+
+	/**
+	 * Sets the absolute path to the external Unrar client.
+	 *
+	 * @param   string   $client  path to the client
+	 * @return  void
+	 * @throws  InvalidArgumentException
+	 */
+	public function setExternalClient($client)
+	{
+		if ($client && !is_file($client))
+			throw new InvalidArgumentException("The client does not exist: {$client}");
+
+		$this->externalClient = $client;
+	}
+
+	/**
+	 * Extracts a compressed or encrypted file using the configured external Unrar
+	 * client, optionally returning the data or saving it to file.
+	 *
+	 * @param   string  $filename     name of the file to extract
+	 * @param   string  $destination  full path of the file to create
+	 * @param   string  $password     password to use for decryption
+	 * @return  mixed   extracted data, number of bytes saved or false on error
+	 */
+	public function extractFile($filename, $destination=null, $password=null)
+	{
+		if (!$this->externalClient || (!$this->file && !$this->data)) {
+			$this->error = 'An external client and valid data source are needed ';
+			return false;
+		}
+
+		// Check that the file is extractable
+		if (!($info = $this->getFileInfo($filename))) {
+			$this->error = "Could not find file info for: ({$filename})";
+			return false;
+		}
+		if (!empty($info['pass']) && $password == null) {
+			$this->error = "The file is passworded: ({$filename})";
+			return false;
+		}
+
+		// Set the data file source
+		$source = $this->file ? $this->file : $this->createTempDataFile();
+
+		// Set the external command
+		$pass = $password ? '-p'.escapeshellarg($password) : '-p-';
+		$command = $this->externalClient." p -kb -y -c- -ierr -ip {$pass} -- "
+			.escapeshellarg($source).' '.escapeshellarg($filename);
+
+		// Set STDERR to write to a temporary file
+		list($hash, $errorFile) = $this->getTempFileName($source.'errors');
+		$this->tempFiles[$hash] = $errorFile;
+		$command .= ' 2> '.escapeshellarg($errorFile);
+
+		// Start the new pipe reader
+		$pipe = new PipeReader;
+		if (!$pipe->open($command)) {
+			$this->error = $pipe->error;
+			return false;
+		}
+		$this->error = '';
+
+		// Open destination file or start buffer
+		if ($destination) {
+			$handle = fopen($destination, 'wb');
+			$written = 0;
+		} else {
+			$data = '';
+		}
+
+		// Buffer the piped data or save it to file
+		while ($read = $pipe->read(1024, false)) {
+			if ($destination) {
+				$written += fwrite($handle, $read);
+			} else {
+				$data .= $read;
+			}
+		}
+		if ($destination) {fclose($handle);}
+		$pipe->close();
+
+		// Check for errors (only after the pipe is closed)
+		if (($error = @file_get_contents($errorFile)) && strpos($error, 'All OK') === false) {
+			if ($destination) {@unlink($destination);}
+			$this->error = $error;
+			return false;
+		}
+
+		return $destination ? $written : $data;
 	}
 
 	/**
@@ -529,6 +623,12 @@ class RarInfo extends ArchiveReader
 	 * @var array
 	 */
 	protected $blocks = array();
+
+	/**
+	 * Full path to the external Unrar client.
+	 * @var string
+	 */
+	protected $externalClient = '';
 
 	/**
 	 * Returns block data in human-readable format (for debugging purposes only).
@@ -600,22 +700,16 @@ class RarInfo extends ArchiveReader
 	}
 
 	/**
-	 * Returns the absolute start and end positions for the given filename in the
-	 * current file/data.
+	 * Returns information for the given filename in the current file/data.
 	 *
 	 * @param   string  $filename  the filename to search
-	 * @return  array|boolean  the range info or false on error
+	 * @return  array|boolean  the file info or false on error
 	 */
-	protected function getFileRangeInfo($filename)
+	protected function getFileInfo($filename)
 	{
-		foreach ($this->blocks as $block) {
-			if (($block['head_type'] == self::BLOCK_FILE || $block['head_type'] == self::R50_BLOCK_FILE)
-			  && empty($block['is_dir']) && !empty($block['file_name'])
-			  && $block['file_name'] == $filename
-			) {
-				$start = $this->start + $block['offset'] + $block['head_size'];
-				$end   = min($this->end, $start + $block['pack_size'] - 1);
-				return array($start, $end);
+		foreach ($this->getFileList(true) as $file) {
+			if (isset($file['name']) && $file['name'] == $filename) {
+				return $file;
 			}
 		}
 		return false;
@@ -1299,7 +1393,6 @@ class RarInfo extends ArchiveReader
 	protected function reset()
 	{
 		parent::reset();
-
 		$this->isVolume = false;
 		$this->hasAuth = false;
 		$this->hasRecovery = false;

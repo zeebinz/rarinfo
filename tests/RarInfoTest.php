@@ -233,4 +233,68 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertCount(0, $rar->getFileList());
 	}
 
+	/**
+	 * Provides the path to the external client executable, or false if it
+	 * doesn't exist in the given directory.
+	 *
+	 * @return  string|boolean  the absolute path to the executable, or false
+	 */
+	protected function getUnrarPath()
+	{
+		$unrar = DIRECTORY_SEPARATOR === '\\'
+			? dirname(__FILE__).'\bin\unrar\UnRAR.exe'
+			: dirname(__FILE__).'/bin/unrar/unrar';
+
+		if (file_exists($unrar))
+			return $unrar;
+
+		return false;
+	}
+
+	/**
+	 * Decompression of archive contents should be possible by using an external
+	 * client to read the current file, or temporary files for data sources. The
+	 * test should be skipped if no external client is available.
+	 *
+	 * @group  external
+	 */
+	public function testDecompressesWithExternalClient()
+	{
+		if (!($unrar = $this->getUnrarPath())) {
+			$this->markTestSkipped();
+		}
+		$rar = new RarInfo;
+
+		// From a file source
+		$rarfile = $this->fixturesDir.'/solid.rar';
+		$rar->open($rarfile);
+		$this->assertEmpty($rar->error);
+
+		$files = $rar->getFileList();
+		$file = $files[1];
+		$this->assertSame('unrardll.txt', $file['name']);
+		$this->assertSame(1, $file['compressed']);
+
+		$data = $rar->extractFile($file['name']);
+		$this->assertNotEmpty($rar->error);
+		$this->assertContains('external client', $rar->error);
+		$this->assertFalse($data);
+
+		$rar->setExternalClient($unrar);
+		$data = $rar->extractFile($file['name']);
+		$this->assertEmpty($rar->error);
+		$this->assertSame($file['size'], strlen($data));
+		$this->assertStringStartsWith("\r\n    UnRAR.dll Manual", $data);
+		$this->assertStringEndsWith("to access this function.\r\n\r\n", $data);
+
+		// From a data source (via temp file)
+		$rar->setData(file_get_contents($rarfile));
+		$this->assertEmpty($rar->error);
+		$summary = $rar->getSummary(true);
+		$this->assertSame(filesize($rarfile), $summary['data_size']);
+		$data = $rar->extractFile($file['name']);
+		$this->assertEmpty($rar->error);
+		$this->assertSame($file['size'], strlen($data));
+	}
+
 } // End RarInfoTest

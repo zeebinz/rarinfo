@@ -44,6 +44,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 4.9 Added option for extracting files with external clients
 - 4.8 Tweaked File header sanity check
 - 4.7 Added support for ArchiveInfo
 - 4.6 Fixed handling of archives with encrypted headers
@@ -114,6 +115,7 @@ Class for inspecting the contents of SRR files and reporting on the RAR files
 that they cover, as well as allowing extraction of any stored files that they
 might contain.
 
+- 2.2 Tweak to support RarInfo 4.9
 - 2.1 Added stricter check for SRR Marker block
 - 2.0 Added support for ArchiveInfo
 - 1.9 Improved analysis performance, cleaned up code
@@ -164,4 +166,5 @@ Testing
 -------------------------------
 Some basic unit tests are in `/tests`, with sample files in `/tests/fixtures`
 (run `generate.php` from there first, and on each pull), more coverage and any
-Github-friendly samples are always welcome. Enjoy :)
+Github-friendly samples are always welcome. Some optional tests require external
+binaries (see `/tests/bin/README.md`). Enjoy :)
