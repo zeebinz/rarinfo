@@ -152,6 +152,12 @@ Class for inspecting the contents of ZIP archives.
 - 1.1 Fixed filecount when CDR is missing
 - 1.0 Initial release
 
+PipeReader
+-------------------------------
+A utility class for handling the piped output of an external command.
+
+- 1.0 Initial Release
+
 
 Testing
 -------------------------------
