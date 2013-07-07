@@ -142,4 +142,67 @@ class ZipInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame("Some text.\n", $data);
 	}
 
-} // End RarInfoTest
+	/**
+	 * Provides the path to the external client executable, or false if it
+	 * doesn't exist in the given directory.
+	 *
+	 * @return  string|boolean  the absolute path to the executable, or false
+	 */
+	protected function getUnzipPath()
+	{
+		$unzip = DIRECTORY_SEPARATOR === '\\'
+			? dirname(__FILE__).'\bin\7z\7za.exe'
+			: dirname(__FILE__).'/bin/7z/7za';
+
+		if (file_exists($unzip))
+			return $unzip;
+
+		return false;
+	}
+
+	/**
+	 * Decompression of archive contents should be possible by using an external
+	 * client to read the current file, or temporary files for data sources. The
+	 * test should be skipped if no external client is available.
+	 *
+	 * @group  external
+	 */
+	public function testDecompressesWithExternalClient()
+	{
+		if (!($unzip = $this->getUnzipPath())) {
+			$this->markTestSkipped();
+		}
+		$zip = new ZipInfo;
+
+		// From a file source
+		$zipfile = $this->fixturesDir.'/pecl_test.zip';
+		$zip->open($zipfile);
+		$this->assertEmpty($zip->error);
+
+		$files = $zip->getFileList();
+		$file = $files[3];
+		$this->assertSame('entry1.txt', $file['name']);
+		$this->assertSame(1, $file['compressed']);
+
+		$data = $zip->extractFile($file['name']);
+		$this->assertNotEmpty($zip->error);
+		$this->assertContains('external client', $zip->error);
+		$this->assertFalse($data);
+
+		$zip->setExternalClient($unzip);
+		$data = $zip->extractFile($file['name']);
+		$this->assertEmpty($zip->error,$zip->error);
+		$this->assertSame($file['size'], strlen($data));
+		$this->assertSame("entry #1", $data);
+
+		// From a data source (via temp file)
+		$zip->setData(file_get_contents($zipfile));
+		$this->assertEmpty($zip->error);
+		$summary = $zip->getSummary(true);
+		$this->assertSame(filesize($zipfile), $summary['data_size']);
+		$data = $zip->extractFile($file['name']);
+		$this->assertEmpty($zip->error);
+		$this->assertSame($file['size'], strlen($data));
+	}
+
+} // End ZipInfoTest
