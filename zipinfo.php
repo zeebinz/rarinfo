@@ -51,7 +51,7 @@ require_once dirname(__FILE__).'/pipereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.8
+ * @version    1.9
  */
 class ZipInfo extends ArchiveReader
 {
@@ -358,8 +358,8 @@ class ZipInfo extends ArchiveReader
 	 */
 	public function setExternalClient($client)
 	{
-		if ($client && !is_file($client))
-			throw new InvalidArgumentException("The client does not exist: {$client}");
+		if ($client && (!is_file($client) || !is_executable($client)))
+			throw new InvalidArgumentException("Not a valid client: {$client}");
 
 		$this->externalClient = $client;
 	}
@@ -376,7 +376,7 @@ class ZipInfo extends ArchiveReader
 	public function extractFile($filename, $destination=null, $password=null)
 	{
 		if (!$this->externalClient || (!$this->file && !$this->data)) {
-			$this->error = 'An external client and valid data source are needed ';
+			$this->error = 'An external client and valid data source are needed';
 			return false;
 		}
 
@@ -395,7 +395,8 @@ class ZipInfo extends ArchiveReader
 
 		// Set the external command
 		$pass = $password ? '-p'.escapeshellarg($password) : '';
-		$command = $this->externalClient." e -so -bd -y -tzip {$pass} -- "
+		$command = '"'.$this->externalClient.'"'
+			." e -so -bd -y -tzip {$pass} -- "
 			.escapeshellarg($source).' '.escapeshellarg($filename);
 
 		// Set STDERR to write to a temporary file

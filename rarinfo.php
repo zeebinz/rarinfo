@@ -50,7 +50,7 @@ require_once dirname(__FILE__).'/pipereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    4.9
+ * @version    5.0
  */
 class RarInfo extends ArchiveReader
 {
@@ -527,8 +527,8 @@ class RarInfo extends ArchiveReader
 	 */
 	public function setExternalClient($client)
 	{
-		if ($client && !is_file($client))
-			throw new InvalidArgumentException("The client does not exist: {$client}");
+		if ($client && (!is_file($client) || !is_executable($client)))
+			throw new InvalidArgumentException("Not a valid client: {$client}");
 
 		$this->externalClient = $client;
 	}
@@ -545,7 +545,7 @@ class RarInfo extends ArchiveReader
 	public function extractFile($filename, $destination=null, $password=null)
 	{
 		if (!$this->externalClient || (!$this->file && !$this->data)) {
-			$this->error = 'An external client and valid data source are needed ';
+			$this->error = 'An external client and valid data source are needed';
 			return false;
 		}
 
@@ -564,7 +564,8 @@ class RarInfo extends ArchiveReader
 
 		// Set the external command
 		$pass = $password ? '-p'.escapeshellarg($password) : '-p-';
-		$command = $this->externalClient." p -kb -y -c- -ierr -ip {$pass} -- "
+		$command = '"'.$this->externalClient.'"'
+			." p -kb -y -c- -ierr -ip {$pass} -- "
 			.escapeshellarg($source).' '.escapeshellarg($filename);
 
 		// Set STDERR to write to a temporary file

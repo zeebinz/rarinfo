@@ -47,6 +47,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 5.0 Improved handling of external clients, including Windows fix
 - 4.9 Added option for extracting files with external clients
 - 4.8 Tweaked File header sanity check
 - 4.7 Added support for ArchiveInfo
@@ -149,6 +150,7 @@ ZipInfo (extends ArchiveReader)
 --------------------------------
 Class for inspecting the contents of ZIP archives.
 
+- 1.9 Improved handling of external clients, including Windows fix
 - 1.8 Added option for extracting files with external clients
 - 1.7 Fixed finding the marker signature
 - 1.6 Added support for ArchiveInfo
