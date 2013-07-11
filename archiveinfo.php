@@ -72,7 +72,7 @@ require_once dirname(__FILE__).'/sfvinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.9
+ * @version    2.0
  */
 class ArchiveInfo extends ArchiveReader
 {
@@ -183,9 +183,6 @@ class ArchiveInfo extends ArchiveReader
 			'data_size' => $this->dataSize,
 			'use_range' => "{$this->start}-{$this->end}",
 		);
-		if ($this->error) {
-			$summary['error'] = $this->error;
-		}
 		if ($this->reader) {
 			$args = func_get_args();
 			$summary += $this->__call('getSummary', $args);
@@ -195,6 +192,9 @@ class ArchiveInfo extends ArchiveReader
 		}
 		if ($this->tempFiles) {
 			$summary['temp_files'] = array_keys($this->tempFiles);
+		}
+		if ($this->error) {
+			$summary['error'] = $this->error;
 		}
 		return $summary;
 	}
@@ -278,7 +278,8 @@ class ArchiveInfo extends ArchiveReader
 	 */
 	public function canExtract()
 	{
-		return $this->reader && !empty($this->externalClients[$this->type]);
+		return $this->reader && (!empty($this->externalClients[$this->type])
+		    || !empty($this->reader->externalClient));
 	}
 
 	/**
@@ -355,9 +356,13 @@ class ArchiveInfo extends ArchiveReader
 						@chmod($temp, 0777);
 						$this->tempFiles[$hash] = $temp;
 					}
-					$archive->open($temp, $this->isFragment);
-					$archive->isTemporary = true;
-
+					if ($this->reader->error) {
+						$archive->error = $this->reader->error;
+						$archive->readers = array();
+					} else {
+						$archive->open($temp, $this->isFragment);
+						$archive->isTemporary = true;
+					}
 					return $archive;
 				}
 
@@ -537,7 +542,7 @@ class ArchiveInfo extends ArchiveReader
 	{
 		// Check that a valid reader is available
 		if (!($archive = $this->getArchiveFromSource($source)) || !($reader = $archive->reader)) {
-			$this->error = "Archive source does exist: {$source}";
+			$this->error = "Not a valid archive source: {$source}";
 			return false;
 		}
 		if (!method_exists($reader, 'extractFile')) {

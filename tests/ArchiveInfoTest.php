@@ -845,4 +845,44 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame('entry #1', $text);
 	}
 
+	/**
+	 * Some recursion errors using external clients can be difficult to debug, so
+	 * we should be able to report any error messages in the archive listings.
+	 *
+	 * @depends testExtractsEmbeddedFilesWithMultipleExternalClients
+	 * @group   external
+	 */
+	public function testReportsErrorsWithRecursiveExtraction()
+	{
+		if (!($unzip = $this->get7zPath())) {
+			$this->markTestSkipped();
+		}
+		$archive = new ArchiveInfo;
+
+		$archive->setReaders(array(
+			ArchiveInfo::TYPE_RAR => 'TestRarInfo',
+			ArchiveInfo::TYPE_ZIP => 'ZipInfo',
+		), true);
+
+		$archive->setExternalClients(array(
+			ArchiveInfo::TYPE_ZIP => $unzip,
+		));
+
+		$archive->open($this->fixturesDir.'/misc/misc_comp_in_rar.rar');
+		$this->assertEmpty($archive->error);
+		$files = $archive->getArchiveFileList(true);
+		$this->assertCount(6, $files);
+		$this->assertArrayHasKey('error', $files[5]);
+		$this->assertSame('main > zip_comp_in_rar.rar > pecl_test.zip', $files[5]['source']);
+		$summary = $archive->getSummary(true);
+		$this->assertArrayHasKey('error', $summary['archives']['zip_comp_in_rar.rar']);
+		$this->assertArrayHasKey('error', $summary['archives']['zip_comp_in_rar.rar']['archives']['pecl_test.zip']);
+	}
+
 } // End ArchiveInfoTest
+
+class TestRarInfo extends RarInfo
+{
+	// Made public for test convenience
+	public $externalClient = 'does_not_exist.exe';
+}
