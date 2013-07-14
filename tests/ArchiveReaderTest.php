@@ -318,6 +318,49 @@ class ArchiveReaderTest extends PHPUnit_Framework_TestCase
 		$this->assertFileNotExists($temp);
 	}
 
+	/**
+	 * As a variation on strpos, we should be able to return a list of all needle
+	 * positions in a given haystack string, and also handle lists of needles.
+	 *
+	 * @dataProvider providerNeedles
+	 * @group  static
+	 */
+	public function testCanFindAllNeedlePositionsInAHaystack($needle, $result)
+	{
+		$haystack = 'Dog the dog in the dog basket did a log';
+		$this->assertSame($result, ArchiveReader::strposall($haystack, $needle));
+	}
+
+	/**
+	 * Provides test data for the strposall static method.
+	 */
+	public function providerNeedles()
+	{
+		return array(
+
+			// Single needles
+			array('D',       array(0)),
+			array('s',       array(25)),
+			array('the dog', array(4, 15)),
+			array('dog',     array(8, 19)),
+			array('og',      array(1, 9, 20, 37)),
+			array('d',       array(8, 19, 30, 32)),
+			array('g',       array(2, 10, 21, 38)),
+
+			// Arrays of needles
+			array(array('d', 'og', 'dog'), array(
+				 1 => array(1),  8 => array(0, 2), 9 => array(1), 19 => array(0, 2),
+				20 => array(1), 30 => array(0),   32 => array(0), 37 => array(1),
+			)),
+			array(array('key1' => 's', 'key2' => 'the', 'key3' => 't'), array(
+				 4 => array('key2', 'key3'),
+				15 => array('key2', 'key3'),
+				25 => array('key1'),
+				28 => array('key3'),
+			)),
+		);
+	}
+
 } // End ArchiveReaderTest
 
 class TestArchiveReader extends ArchiveReader

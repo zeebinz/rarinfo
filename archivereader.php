@@ -5,7 +5,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    2.6
+ * @version    2.7
  */
 abstract class ArchiveReader
 {
@@ -160,6 +160,43 @@ abstract class ArchiveReader
 		chmod($dir, 0777);
 
 		return true;
+	}
+
+	/**
+	 * Returns all the positions of a case-sensitive needle in a haystack string.
+	 * With an array of needles, the result will be a sorted list with the positions
+	 * as keys and a list of all matching needle keys as the values.
+	 *
+	 * @param   string         $haystack  the string to search
+	 * @param   string|array   $needle    the string or list of strings to find
+	 * @return  array|boolean  the needle positions, or false if none found
+	 */
+	public static function strposall($haystack, $needle, $offset=0)
+	{
+		$start   = $offset;
+		$hlen    = strlen($haystack);
+		$isArray = is_array($needle);
+		$results = array();
+
+		foreach ((array) $needle as $key => $value) {
+			if (($vlen = strlen($value)) == 0)
+				continue;
+			while ($offset < $hlen && ($pos = strpos($haystack, $value, $offset)) !== false) {
+				$offset = $pos + $vlen;
+				if ($isArray) {
+					$results[$pos][] = $key;
+				} else {
+					$results[$pos] = $pos;
+				}
+			}
+			$offset = $start;
+		}
+		if (!empty($results)) {
+			ksort($results);
+			return $isArray ? $results : array_values($results);
+		}
+
+		return false;
 	}
 
 	// ------ Instance variables and methods ---------------------------------------

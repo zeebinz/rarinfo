@@ -8,6 +8,7 @@ ArchiveReader
 Abstract base class for the various file inspectors that defines the basic API
 and implements common methods for file/data handling.
 
+- 2.7 Added strposall() static method
 - 2.6 Added methods for creating temporary files
 - 2.5 Added support for ArchiveInfo
 - 2.4 Fixed getting file sizes on Windows without com_dotnet loaded
