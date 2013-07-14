@@ -50,7 +50,7 @@ require_once dirname(__FILE__).'/pipereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    5.0
+ * @version    5.1
  */
 class RarInfo extends ArchiveReader
 {
@@ -717,25 +717,32 @@ class RarInfo extends ArchiveReader
 	}
 
 	/**
-	 * Searches for a valid File header in the data or file, and moves the current
-	 * pointer to its starting offset.
+	 * Searches for the position of a valid File header in the file/data up to
+	 * maxReadBytes, and sets it as the start of the data to analyze.
 	 *
-	 * This (VERY SLOW) hack is only useful when handling RAR file fragments, and
+	 * This quite slow hack is only useful when handling RAR file fragments, and
 	 * only with RAR format 1.5 - 4.x.
 	 *
-	 * @return  boolean  false if no valid File header is found
+	 * @return  integer|boolean  the header offset, or false if none is found
 	 */
 	protected function findFileHeader()
 	{
-		$length = min($this->length, $this->maxReadBytes);
-		while ($this->offset < $length) try {
+		// Buffer the data to search
+		$start = $this->offset;
+		try {
+			$buffer = $this->read(min($this->length, $this->maxReadBytes));
+			$this->rewind();
+		} catch (Exception $e) {return false;}
 
-			// Search for a BLOCK_FILE byte hint
-			if (ord($this->read(1)) != self::BLOCK_FILE || $this->offset < 3)
-				continue;
+		// Get all the offsets to test
+		if (!($positions = self::strposall($buffer, pack('C', self::BLOCK_FILE))))
+			return false;
+
+		foreach ($positions as $offset) try {
+			$offset += $start;
+			$this->seek($offset - 2);
 
 			// Run a File header CRC & sanity check
-			$this->seek($this->offset - 3);
 			$block = $this->getNextBlock();
 			if ($this->checkFileHeaderCRC($block)) {
 				$this->seek($block['offset'] + self::HEADER_SIZE);
@@ -743,19 +750,13 @@ class RarInfo extends ArchiveReader
 				if ($this->sanityCheckFileHeader($block)) {
 
 					// A valid File header was found
-					$this->markerPosition = $block['offset'];
 					$this->format = self::FMT_RAR15;
-					$this->seek($block['offset']);
-					return true;
+					return $this->markerPosition = $block['offset'];
 				}
 			}
 
-			// Continue searching from the next byte
-			$this->seek($block['offset'] + 3);
-			continue;
-
- 		// No more readable data, or read error
-		} catch (Exception $e) {break;}
+		// No more readable data, or read error
+		} catch (Exception $e) {continue;}
 
 		return false;
 	}
@@ -856,10 +857,11 @@ class RarInfo extends ArchiveReader
 		} elseif ($this->isFragment) {
 
 			// Search for a valid file header and continue unpacking from there
-			if ($this->findFileHeader() === false) {
+			if (($startPos = $this->findFileHeader()) === false) {
 				$this->error = 'Could not find a valid File header';
 				return false;
 			}
+			$this->seek($startPos);
 		}
 
 		// Analyze all valid blocks

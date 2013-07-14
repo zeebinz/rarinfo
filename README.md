@@ -49,6 +49,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 5.1 Speeded up findFileHeader() method quite a bit
 - 5.0 Improved handling of external clients, including Windows fix
 - 4.9 Added option for extracting files with external clients
 - 4.8 Tweaked File header sanity check
