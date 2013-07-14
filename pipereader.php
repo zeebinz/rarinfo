@@ -15,7 +15,7 @@
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.1
+ * @version    1.2
  */
 class PipeReader
 {
@@ -132,6 +132,23 @@ class PipeReader
 		}
 
 		return $data;
+	}
+
+	/**
+	 * Convenience method for reading a single line, with the line ending included
+	 * in the output.
+	 *
+	 * @return  string|boolean  the next output line, or false if none available
+	 */
+	public function readLine()
+	{
+		if (!$this->command || !is_resource($this->handle) || feof($this->handle))
+			return false;
+
+		$line = fgets($this->handle, $this->maxReadBytes);
+		$this->offset = $this->tell();
+
+		return $line;
 	}
 
 	/**

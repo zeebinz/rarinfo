@@ -103,6 +103,33 @@ class PipeReaderTest extends PHPUnit_Framework_TestCase
 		$this->assertSame($filesize, $reader->tell());
 	}
 
+	/**
+	 * We also need to be able to read one line at a time, with the line ending
+	 * included in the output.
+	 *
+	 * @depends testHandlesBasicSeekingAndReading
+	 */
+	public function testReadsSingleLines()
+	{
+		$file = realpath($this->fixturesDir.'/sfv/test001.sfv');
+		$command = DIRECTORY_SEPARATOR === '\\'
+			? 'type '.escapeshellarg($file).' 2>nul'
+			: 'cat '.escapeshellarg($file);
+
+		$reader = new TestPipeReader;
+		$reader->open($command);
+		$this->assertEmpty($reader->error);
+
+		$line = $reader->readLine();
+		$this->assertSame("; example comment\r\n", $line);
+		while ($data = $reader->readLine()) {
+			$line = $data;
+		}
+		$this->assertSame("testrar.rar 36fbdd27\r\n", $line);
+		$this->assertFalse($data);
+		$this->assertSame($reader->offset, $reader->tell());
+	}
+
 } // End PipeReaderTest
 
 class TestPipeReader extends PipeReader

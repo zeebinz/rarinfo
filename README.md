@@ -168,6 +168,7 @@ PipeReader
 -------------------------------
 A utility class for handling the piped output of an external command.
 
+- 1.2 Added readLine() method
 - 1.1 Fixed visibility of pipe handle
 - 1.0 Initial release
 
