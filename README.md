@@ -175,7 +175,7 @@ A utility class for handling the piped output of an external command.
 
 Testing
 -------------------------------
-Some basic unit tests are in `/tests`, with sample files in `/tests/fixtures`
-(run `generate.php` from there first, and on each pull), more coverage and any
-Github-friendly samples are always welcome. Some optional tests require external
-binaries (see `/tests/bin/README.md`). Enjoy :)
+Some basic unit tests using [PHPUnit](http://phpunit.de/manual/current/en/installation.html)
+are in `/tests`, with sample files in `/tests/fixtures` (run `generate.php` from there first
+and on each pull), more coverage and any Github-friendly samples are always welcome. Some
+optional tests require external binaries (see `/tests/bin/README.md`). Enjoy :)
