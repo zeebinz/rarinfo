@@ -41,7 +41,7 @@ require_once dirname(__FILE__).'/pipereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.0
+ * @version    1.1
  */
 class SzipInfo extends ArchiveReader
 {
@@ -890,19 +890,20 @@ class SzipInfo extends ArchiveReader
 
 		// Substream unpack digests (for streams with unknown CRC)
 		$numDigests = $numDigestsTotal = 0;
-		if ($nid == self::PROPERTY_CRC) {
-			for ($i = 0; $i < $header['num_folders']; $i++) {
-				$numStreams = $subs['num_unpack_streams'][$i];
-				if ($numStreams != 1 || empty($header['folders'][$i]['digest_defined'])) {
-					$numDigests += $numStreams;
-				}
-				$numDigestsTotal += $numStreams;
+		for ($i = 0; $i < $header['num_folders']; $i++) {
+			$numStreams = $subs['num_unpack_streams'][$i];
+			if ($numStreams != 1 || empty($header['folders'][$i]['digest_defined'])) {
+				$numDigests += $numStreams;
 			}
+			$numDigestsTotal += $numStreams;
+		}
+		if ($nid == self::PROPERTY_CRC) {
 			$subs['digests_defined'] = array();
 			$subs['digests'] = array();
 			$digests = $this->readDigests($numDigests);
 			$digestIndex = 0;
 			for ($i = 0; $i < $header['num_folders']; $i++) {
+				$numStreams = $subs['num_unpack_streams'][$i];
 				if ($numStreams == 1 && !empty($header['folders'][$i]['digest_defined'])) {
 					$subs['digests_defined'][] = 1;
 					$subs['digests'][] = $header['folders'][$i]['unpack_crc'];
@@ -914,12 +915,9 @@ class SzipInfo extends ArchiveReader
 				}
 			}
 			$nid = ord($this->read(1));
-		}
-
-		// Verify substream digests
-		if (empty($subs['digests_defined'])) {
-			$subs['digests_defined'] = $numDigestsTotal ? array_fill(0, $numDigestsTotal, 0) : array();
-			$subs['digests'] = $numDigestsTotal ? array_fill(0, $numDigestsTotal, 0) : array();
+		} else {
+			$subs['digests_defined'] = array_fill(0, $numDigestsTotal, 0);
+			$subs['digests'] = array_fill(0, $numDigestsTotal, 0);
 		}
 
 		$header['substreams'] = $subs;
@@ -1218,6 +1216,8 @@ class SzipInfo extends ArchiveReader
 			if (!empty($digests['defined'][$i])) {
 				$crc = self::unpack('V', $this->read(4));
 				$digests['crcs'][$i] = $crc[1];
+			} else {
+				$digests['crcs'][$i] = 0;
 			}
 		}
 

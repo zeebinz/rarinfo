@@ -172,9 +172,10 @@ Class for inspecting the contents of ZIP archives.
 - 1.0 Initial release
 
 SzipInfo (extends ArchiveReader)
--------------------------------
+--------------------------------
 Class for inspecting the contents of 7-zip (.7z) archives.
 
+- 1.1 Fixed parsing of substream digests
 - 1.0 Initial release
 
 PipeReader
