@@ -8,6 +8,7 @@ ArchiveReader
 Abstract base class for the various file inspectors that defines the basic API
 and implements common methods for file/data handling.
 
+- 2.8 Changed getFileList() to return empty array on error
 - 2.7 Added strposall() static method
 - 2.6 Added methods for creating temporary files
 - 2.5 Added support for ArchiveInfo
@@ -49,6 +50,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 5.2 Changed getFileList() to return empty array on error
 - 5.1 Speeded up findFileHeader() method quite a bit
 - 5.0 Improved handling of external clients, including Windows fix
 - 4.9 Added option for extracting files with external clients
@@ -105,6 +107,7 @@ SfvInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of SFV verification files.
 
+- 2.0 Changed getFileList() to return empty array on error
 - 1.9 Added use_range value to getSummary() output
 - 1.8 Added support for ArchiveInfo
 - 1.7 Added support for byte ranges
@@ -122,6 +125,7 @@ Class for inspecting the contents of SRR files and reporting on the RAR files
 that they cover, as well as allowing extraction of any stored files that they
 might contain.
 
+- 2.3 Changed getFileList() to return empty array on error
 - 2.2 Tweak to support RarInfo 4.9
 - 2.1 Added stricter check for SRR Marker block
 - 2.0 Added support for ArchiveInfo
@@ -141,6 +145,7 @@ Par2Info (extends ArchiveReader)
 Class for inspecting the contents of PAR2 parity files and reporting on the
 archives that they cover.
 
+- 1.7 Changed getFileList() to return empty array on error
 - 1.6 Added support for ArchiveInfo
 - 1.5 Improved analysis performance
 - 1.4 Added support for byte ranges
@@ -153,6 +158,7 @@ ZipInfo (extends ArchiveReader)
 --------------------------------
 Class for inspecting the contents of ZIP archives.
 
+- 2.0 Changed getFileList() to return empty array on error
 - 1.9 Improved handling of external clients, including Windows fix
 - 1.8 Added option for extracting files with external clients
 - 1.7 Fixed finding the marker signature
