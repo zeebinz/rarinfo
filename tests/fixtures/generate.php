@@ -21,6 +21,7 @@ if (!isset($opts['t']) || $opts['t'] == 'rar')  makeRarFixtures($pretend, $refre
 if (!isset($opts['t']) || $opts['t'] == 'srr')  makeSrrFixtures($pretend, $refresh);
 if (!isset($opts['t']) || $opts['t'] == 'par2') makePar2Fixtures($pretend, $refresh);
 if (!isset($opts['t']) || $opts['t'] == 'zip')  makeZipFixtures($pretend, $refresh);
+if (!isset($opts['t']) || $opts['t'] == 'szip') makeSzipFixtures($pretend, $refresh);
 
 /**
  * Generates test fixtures from RAR sample files.
@@ -134,6 +135,36 @@ function makeZipFixtures($pretend=false, $refresh=true)
 			continue;
 		}
 		$data = $zip->getRecords();
+		if (!$pretend) {
+			$data = "<?php\nreturn ".var_export($data, true).";\n";
+			file_put_contents($file, $data);
+		}
+		echo "-- $fname\n";
+	}
+}
+
+/**
+ * Generates test fixtures from 7z sample files.
+ *
+ * @param   boolean  $pretend  debug output only?
+ * @param   boolean  $refresh  regenerate existing files?
+ * @return  void
+ */
+function makeSzipFixtures($pretend=false, $refresh=true)
+{
+	require_once dirname(__FILE__).'/../../szipinfo.php';
+	$szip = new SzipInfo;
+	foreach(glob(dirname(__FILE__).'/szip/*.{7z,001,002}', GLOB_BRACE) as $szipfile) {
+		$fname = pathinfo($szipfile, PATHINFO_BASENAME).'.headers';
+		$file  = dirname(__FILE__)."/szip/$fname";
+		if (!$refresh && file_exists($file)) {continue;}
+		echo "Generating for $szipfile:\n";
+		$szip->open($szipfile, true);
+		if ($szip->error) {
+			echo "Error: {$szip->error}\n";
+			continue;
+		}
+		$data = $szip->getHeaders();
 		if (!$pretend) {
 			$data = "<?php\nreturn ".var_export($data, true).";\n";
 			file_put_contents($file, $data);
