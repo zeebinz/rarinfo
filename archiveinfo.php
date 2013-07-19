@@ -6,6 +6,7 @@ require_once dirname(__FILE__).'/zipinfo.php';
 require_once dirname(__FILE__).'/srrinfo.php';
 require_once dirname(__FILE__).'/par2info.php';
 require_once dirname(__FILE__).'/sfvinfo.php';
+require_once dirname(__FILE__).'/szipinfo.php';
 
 /**
  * ArchiveInfo class.
@@ -72,7 +73,7 @@ require_once dirname(__FILE__).'/sfvinfo.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    2.0
+ * @version    2.1
  */
 class ArchiveInfo extends ArchiveReader
 {
@@ -85,6 +86,7 @@ class ArchiveInfo extends ArchiveReader
 	const TYPE_SRR     = 0x0008;
 	const TYPE_SFV     = 0x0010;
 	const TYPE_PAR2    = 0x0020;
+	const TYPE_SZIP    = 0x0040;
 
 	/**#@-*/
 
@@ -103,6 +105,7 @@ class ArchiveInfo extends ArchiveReader
 		self::TYPE_PAR2 => 'Par2Info',
 		self::TYPE_ZIP  => 'ZipInfo',
 		self::TYPE_SFV  => 'SfvInfo',
+		self::TYPE_SZIP => 'SzipInfo',
 	);
 
 	/**
@@ -231,6 +234,8 @@ class ArchiveInfo extends ArchiveReader
 				return $this->reader->getPackets();
 			case self::TYPE_ZIP:
 				return $this->reader->getRecords();
+			case self::TYPE_SZIP:
+				return $this->reader->getHeaders();
 			case self::TYPE_SFV:
 				return $this->reader->getFileList();
 			default:
@@ -256,7 +261,7 @@ class ArchiveInfo extends ArchiveReader
 	 */
 	public function allowsRecursion()
 	{
-		return ($this->type == self::TYPE_RAR || $this->type == self::TYPE_ZIP);
+		return (bool) ($this->type & (self::TYPE_RAR | self::TYPE_ZIP | self::TYPE_SZIP));
 	}
 
 	/**
@@ -297,7 +302,7 @@ class ArchiveInfo extends ArchiveReader
 		if (empty($this->archives)) {
 			foreach ($this->reader->getFileList() as $file) {
 				$ext = pathinfo($file['name'], PATHINFO_EXTENSION);
-				if (preg_match('/(rar|r[0-9]+|zip|srr|par2|sfv)/', $ext)
+				if (preg_match('/(rar|r[0-9]+|zip|srr|par2|sfv|7z|[0-9]+)/', $ext)
 					&& ($archive = $this->getArchive($file['name']))
 					&& ($archive->type != self::TYPE_NONE || empty($archive->readers))
 				) {

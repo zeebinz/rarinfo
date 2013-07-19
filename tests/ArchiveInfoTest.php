@@ -67,6 +67,14 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(5, $archive->fileCount);
 		$this->assertNotEmpty($archive->comments);
 
+		// SZIP
+		$archive->open($this->fixturesDir.'/szip/store_method.7z');
+		$this->assertEmpty($archive->error);
+		$this->assertSame(ArchiveInfo::TYPE_SZIP, $archive->type);
+		$this->assertInstanceOf('SzipInfo', $archive->getReader());
+		$this->assertSame(2, $archive->fileCount);
+		$this->assertSame(2, $archive->blockCount);
+
 		// Unsupported
 		$archive->open($this->fixturesDir.'/misc/foo.txt');
 		$this->assertNotEmpty($archive->error);
@@ -114,6 +122,54 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$archive->open($this->fixturesDir.'/misc/rar_in_zip.zip');
 		$this->assertEmpty($archive->error);
 		$this->assertSame(ArchiveInfo::TYPE_ZIP, $archive->type);
+		$this->assertSame(1, $archive->fileCount);
+		$files = $archive->getFileList();
+		$this->assertCount(1, $files);
+		$this->assertSame('commented.rar', $files[0]['name']);
+		$this->assertTrue($archive->allowsRecursion());
+		$this->assertTrue($archive->containsArchive());
+
+		$rar = $archive->getArchive($files[0]['name']);
+		$this->assertSame(ArchiveInfo::TYPE_RAR, $rar->type);
+		$this->assertSame(1, $rar->fileCount);
+		$files = $rar->getFileList();
+		$this->assertCount(1, $files);
+		$this->assertSame('file.txt', $files[0]['name']);
+		$this->assertSame(12, $files[0]['size']);
+		$this->assertSame(0, $files[0]['compressed']);
+		$text = $rar->getFileData($files[0]['name']);
+		$this->assertSame($files[0]['size'], strlen($text));
+		$this->assertContains('file content', $text);
+		unset($rar);
+
+		// SZIP within RAR
+		$archive->open($this->fixturesDir.'/misc/szip_in_rar.rar');
+		$this->assertEmpty($archive->error);
+		$this->assertSame(ArchiveInfo::TYPE_RAR, $archive->type);
+		$this->assertSame(1, $archive->fileCount);
+		$files = $archive->getFileList();
+		$this->assertCount(1, $files);
+		$this->assertSame('store_method.7z', $files[0]['name']);
+		$this->assertTrue($archive->allowsRecursion());
+		$this->assertTrue($archive->containsArchive());
+
+		$szip = $archive->getArchive($files[0]['name']);
+		$this->assertSame(ArchiveInfo::TYPE_SZIP, $szip->type);
+		$this->assertSame(2, $szip->fileCount);
+		$files = $szip->getFileList();
+		$this->assertCount(2, $files);
+		$this->assertSame('7zFormat.txt', $files[0]['name']);
+		$this->assertSame(7573, $files[0]['size']);
+		$this->assertSame(0, $files[0]['compressed']);
+		$text = $szip->getFileData($files[0]['name']);
+		$this->assertSame($files[0]['size'], strlen($text));
+		$this->assertStringStartsWith('7z Format description', $text);
+		unset($szip);
+
+		// RAR within SZIP
+		$archive->open($this->fixturesDir.'/misc/rar_in_szip.7z');
+		$this->assertEmpty($archive->error);
+		$this->assertSame(ArchiveInfo::TYPE_SZIP, $archive->type);
 		$this->assertSame(1, $archive->fileCount);
 		$files = $archive->getFileList();
 		$this->assertCount(1, $files);
@@ -288,7 +344,7 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 	}
 
 	/**
-	 * Provides info for sample files containing all supported archive types.
+	 * Provides info for sample files containing supported archive types.
 	 */
 	public function providerSampleFiles()
 	{
@@ -771,8 +827,9 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 
 		$archive = new ArchiveInfo;
 		$archive->setExternalClients(array(
-			ArchiveInfo::TYPE_RAR => $unrar,
-			ArchiveInfo::TYPE_ZIP => $unzip,
+			ArchiveInfo::TYPE_RAR  => $unrar,
+			ArchiveInfo::TYPE_ZIP  => $unzip,
+			ArchiveInfo::TYPE_SZIP => $unzip,
 		));
 		$this->assertEmpty($archive->error);
 
@@ -843,6 +900,26 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame('main > zip_comp_in_rar.rar > pecl_test.zip', $file['source']);
 		$text = $archive->extractFile($file['name'], null, null, $file['source']);
 		$this->assertSame('entry #1', $text);
+
+		// RAR within SZIP
+		$archive->open($this->fixturesDir.'/misc/rar_comp_in_szip.7z');
+		$this->assertEmpty($archive->error);
+		$files = $archive->getFileList();
+		$this->assertCount(1, $files);
+		$this->assertSame('4mb.rar', $files[0]['name']);
+		$this->assertSame(1, $files[0]['compressed']);
+
+		$files = $archive->getArchiveFileList(true);
+		$this->assertCount(2, $files);
+		$file = $files[1];
+		$this->assertSame('4mb.txt', $file['name']);
+		$this->assertSame('main > 4mb.rar', $file['source']);
+		$this->assertSame(4194304, $file['size']);
+		$this->assertSame(1, $file['compressed']);
+
+		$text = $archive->extractFile($file['name'], null, null, $file['source']);
+		$this->assertSame($file['size'], strlen($text));
+		$this->assertStringEndsWith('6789012345', $text);
 	}
 
 	/**

@@ -34,6 +34,7 @@ ArchiveInfo (extends ArchiveReader)
 Example class that provides a facade for all the readers in the library, and also
 allows recursive inspection of archives packed within archives.
 
+- 2.1 Added support for SzipInfo (7-zip archives)
 - 2.0 Improved error reporting for recursive extraction
 - 1.9 Added support for recursive extraction using external clients
 - 1.8 Restricted stored archives to supported types only
