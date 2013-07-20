@@ -71,24 +71,41 @@ class ZipInfoTest extends PHPUnit_Framework_TestCase
 
 		$files = $zip->getFileList();
 		$this->assertCount(4, $files);
+
 		$this->assertSame('bar', $files[0]['name']);
+		$this->assertSame(4, $files[0]['size']);
+		$this->assertSame(1123171908, $files[0]['date']);
 		$this->assertSame(0, $files[0]['pass']);
 		$this->assertSame(0, $files[0]['compressed']);
+		$this->assertSame('54-57', $files[0]['range']);
+		$this->assertSame('4a2b3e9', $files[0]['crc32']);
 		$this->assertArrayNotHasKey('is_dir', $files[0]);
 
 		$this->assertSame('foobar/', $files[1]['name']);
+		$this->assertSame(0, $files[1]['size']);
+		$this->assertSame(1123171948, $files[1]['date']);
 		$this->assertSame(0, $files[1]['pass']);
 		$this->assertSame(0, $files[1]['compressed']);
+		$this->assertArrayNotHasKey('range', $files[1]);
+		$this->assertArrayNotHasKey('crc32', $files[1]);
 		$this->assertArrayHasKey('is_dir', $files[1]);
 
 		$this->assertSame('foobar/baz', $files[2]['name']);
+		$this->assertSame(27, $files[2]['size']);
+		$this->assertSame(1123171948, $files[2]['date']);
 		$this->assertSame(0, $files[2]['pass']);
 		$this->assertSame(1, $files[2]['compressed']);
+		$this->assertSame('177-203', $files[2]['range']);
+		$this->assertSame('1dc53e58', $files[2]['crc32']);
 		$this->assertArrayNotHasKey('is_dir', $files[2]);
 
 		$this->assertSame('entry1.txt', $files[3]['name']);
+		$this->assertSame(8, $files[3]['size']);
+		$this->assertSame(1152216782, $files[3]['date']);
 		$this->assertSame(0, $files[3]['pass']);
 		$this->assertSame(1, $files[3]['compressed']);
+		$this->assertSame('241-248', $files[3]['range']);
+		$this->assertSame('f40c64db', $files[3]['crc32']);
 		$this->assertArrayNotHasKey('is_dir', $files[3]);
 
 		// Encrypted files should be reported
@@ -139,6 +156,7 @@ class ZipInfoTest extends PHPUnit_Framework_TestCase
 
 		$data = $zip->getFileData($files[0]['name']);
 		$this->assertSame($files[0]['size'], strlen($data));
+		$this->assertSame($files[0]['crc32'], dechex(crc32(($data))));
 		$this->assertSame("Some text.\n", $data);
 	}
 
@@ -193,6 +211,7 @@ class ZipInfoTest extends PHPUnit_Framework_TestCase
 		$data = $zip->extractFile($file['name']);
 		$this->assertEmpty($zip->error,$zip->error);
 		$this->assertSame($file['size'], strlen($data));
+		$this->assertSame($file['crc32'], dechex(crc32(($data))));
 		$this->assertSame("entry #1", $data);
 
 		// From a data source (via temp file)

@@ -50,7 +50,7 @@ require_once dirname(__FILE__).'/pipereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    5.2
+ * @version    5.3
  */
 class RarInfo extends ArchiveReader
 {
@@ -688,6 +688,9 @@ class RarInfo extends ArchiveReader
 			$start = $this->start + $block['offset'] + $block['head_size'];
 			$end   = min($this->end, $start + $block['pack_size'] - 1);
 			$ret['range'] = "{$start}-{$end}";
+		}
+		if (!empty($block['file_crc'])) {
+			$ret['crc32'] = dechex($block['file_crc']);
 		}
 		if (!empty($block['split_after']) || !empty($block['split_before'])) {
 			$ret['split'] = 1;

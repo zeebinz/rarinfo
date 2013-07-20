@@ -68,18 +68,27 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 	{
 		$rar = new RarInfo;
 		$rar->open($this->fixturesDir.'/multi.part1.rar');
-		$files = $rar->getFileList();
 
+		$files = $rar->getFileList();
 		$this->assertCount(2, $files);
+
 		$this->assertSame('file1.txt', $files[0]['name']);
+		$this->assertSame(18, $files[0]['size']);
+		$this->assertSame(1258588344, $files[0]['date']);
 		$this->assertSame(0, $files[0]['pass']);
 		$this->assertSame(0, $files[0]['compressed']);
+		$this->assertSame('66-83', $files[0]['range']);
+		$this->assertSame('52b28202', $files[0]['crc32']);
 		$this->assertArrayNotHasKey('split', $files[0]);
 		$this->assertArrayNotHasKey('is_dir', $files[0]);
 
 		$this->assertSame('file2.txt', $files[1]['name']);
+		$this->assertSame(17704, $files[1]['size']);
+		$this->assertSame(1258588852, $files[1]['date']);
 		$this->assertSame(0, $files[1]['pass']);
 		$this->assertSame(1, $files[1]['compressed']);
+		$this->assertSame('130-4979', $files[1]['range']);
+		$this->assertSame('e0222912', $files[1]['crc32']);
 		$this->assertArrayHasKey('split', $files[1]);
 		$this->assertArrayNotHasKey('is_dir', $files[1]);
 	}
@@ -100,6 +109,7 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(0, $files[0]['compressed']);
 		$data = $rar->getFileData($files[0]['name']);
 		$this->assertSame($files[0]['size'], strlen($data));
+		$this->assertSame($files[0]['crc32'], dechex(crc32(($data))));
 		$this->assertStringStartsWith('At each generation,', $data);
 		$this->assertStringEndsWith('children, y, is', $data);
 
@@ -143,31 +153,41 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(4194304, $files[0]['size']);
 		$this->assertSame(0, $files[0]['pass']);
 		$this->assertSame(0, $files[0]['compressed']);
-		$this->assertEquals('1275178921', $files[0]['date']);
+		$this->assertSame(1275178921, $files[0]['date']);
+		$this->assertSame('122-4194425', $files[0]['range']);
+		$this->assertSame('def82f5', $files[0]['crc32']);
 		$this->assertArrayNotHasKey('is_dir', $files[0]);
 
 		$this->assertSame('testdir', $files[1]['name']);
 		$this->assertSame(0, $files[1]['size']);
 		$this->assertSame(0, $files[1]['pass']);
 		$this->assertSame(0, $files[1]['compressed']);
-		$this->assertEquals('1368906855', $files[1]['date']);
+		$this->assertSame(1368906855, $files[1]['date']);
+		$this->assertArrayNotHasKey('range', $files[1]);
+		$this->assertArrayNotHasKey('crc32', $files[1]);
 		$this->assertArrayHasKey('is_dir', $files[1]);
 
 		$this->assertSame('testdir/bar.txt', $files[2]['name']);
 		$this->assertSame(13, $files[2]['size']);
 		$this->assertSame(1, $files[2]['pass']);
 		$this->assertSame(1, $files[2]['compressed']);
-		$this->assertEquals('1369170252', $files[2]['date']);
+		$this->assertSame(1369170252, $files[2]['date']);
+		$this->assertSame('4194559-4194590', $files[2]['range']);
+		$this->assertSame('3b947aa0', $files[2]['crc32']);
 		$this->assertArrayNotHasKey('is_dir', $files[2]);
 
 		$this->assertSame('foo.txt', $files[3]['name']);
 		$this->assertSame(13, $files[3]['size']);
 		$this->assertSame(0, $files[3]['pass']);
 		$this->assertSame(0, $files[3]['compressed']);
-		$this->assertEquals('1369170262', $files[3]['date']);
+		$this->assertSame(1369170262, $files[3]['date']);
+		$this->assertSame('4194647-4194659', $files[3]['range']);
+		$this->assertSame('d4ac3fee', $files[3]['crc32']);
 		$this->assertArrayNotHasKey('is_dir', $files[3]);
 
-		$this->assertSame('foo test text', $rar->getFileData('foo.txt'));
+		$data = $rar->getFileData('foo.txt');
+		$this->assertSame('foo test text', $data);
+		$this->assertSame($files[3]['crc32'], dechex(crc32(($data))));
 
 		// Bonus! Archive comments are no longer compressed
 		$this->assertSame("test archive comment\x00", $rar->comments);
@@ -284,6 +304,7 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 		$data = $rar->extractFile($file['name']);
 		$this->assertEmpty($rar->error);
 		$this->assertSame($file['size'], strlen($data));
+		$this->assertSame($file['crc32'], dechex(crc32(($data))));
 		$this->assertStringStartsWith("\r\n    UnRAR.dll Manual", $data);
 		$this->assertStringEndsWith("to access this function.\r\n\r\n", $data);
 

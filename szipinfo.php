@@ -41,7 +41,7 @@ require_once dirname(__FILE__).'/pipereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.1
+ * @version    1.2
  */
 class SzipInfo extends ArchiveReader
 {
@@ -252,6 +252,9 @@ class SzipInfo extends ArchiveReader
 				}
 				if ($packRanges[$folderIndex] != null) {
 					$item['range'] = $packRanges[$folderIndex];
+				}
+				if (!empty($streams['substreams']['digests_defined'][$sizeIndex])) {
+					$item['crc32'] = dechex($streams['substreams']['digests'][$sizeIndex]);
 				}
 				if (++$streamIndex == $numStreamsInFolder) {
 					$streamIndex = 0;
@@ -635,7 +638,7 @@ class SzipInfo extends ArchiveReader
 	}
 
 	/**
-	 * Reads & parses info about the main archive streams from the current offset,
+	 * Reads & parses info about various archive streams from the current offset,
 	 * and adds it to the given header record.
 	 *
 	 * @param   array    $header  a valid header record
@@ -1011,9 +1014,11 @@ class SzipInfo extends ArchiveReader
 			elseif ($type == self::PROPERTY_EMPTY_STREAM) {
 				$header['empty_streams'] = $this->readBooleans($header['num_files']);
 				$numEmptyStreams = array_sum($header['empty_streams']);
-			} elseif ($type == self::PROPERTY_EMPTY_FILE) {
+			}
+			elseif ($type == self::PROPERTY_EMPTY_FILE) {
 				$header['empty_files'] = $this->readBooleans($numEmptyStreams);
-			} elseif ($type == self::PROPERTY_ANTI) {
+			}
+			elseif ($type == self::PROPERTY_ANTI) {
 				$header['anti_files'] = $this->readBooleans($numEmptyStreams);
 			}
 
@@ -1234,9 +1239,9 @@ class SzipInfo extends ArchiveReader
 	 */
 	protected function findBindPair($pairs, $index, $type)
 	{
-		foreach ($pairs as $nidx => $pair) {
+		foreach ($pairs as $idx => $pair) {
 			if ($pair[$type] == $index)
-				return $nidx;
+				return $idx;
 		}
 		return -1;
 	}

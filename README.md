@@ -51,6 +51,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 5.3 Added CRC32 checksums to the file list output
 - 5.2 Changed getFileList() to return empty array on error
 - 5.1 Speeded up findFileHeader() method quite a bit
 - 5.0 Improved handling of external clients, including Windows fix
@@ -159,6 +160,7 @@ ZipInfo (extends ArchiveReader)
 --------------------------------
 Class for inspecting the contents of ZIP archives.
 
+- 2.1 Added CRC32 checksums to the file list output
 - 2.0 Changed getFileList() to return empty array on error
 - 1.9 Improved handling of external clients, including Windows fix
 - 1.8 Added option for extracting files with external clients
@@ -175,6 +177,7 @@ SzipInfo (extends ArchiveReader)
 --------------------------------
 Class for inspecting the contents of 7-zip (.7z) archives.
 
+- 1.2 Added CRC32 checksums to the file list output
 - 1.1 Fixed parsing of substream digests
 - 1.0 Initial release
 

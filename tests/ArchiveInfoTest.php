@@ -113,8 +113,10 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame('little_file.txt', $files[0]['name']);
 		$this->assertSame(11, $files[0]['size']);
 		$this->assertSame(0, $files[0]['compressed']);
+		$this->assertSame('876dbba3', $files[0]['crc32']);
 		$text = $zip->getFileData($files[0]['name']);
 		$this->assertSame($files[0]['size'], strlen($text));
+		$this->assertSame($files[0]['crc32'], dechex(crc32(($text))));
 		$this->assertContains('Some text', $text);
 		unset($zip);
 
@@ -137,8 +139,10 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame('file.txt', $files[0]['name']);
 		$this->assertSame(12, $files[0]['size']);
 		$this->assertSame(0, $files[0]['compressed']);
+		$this->assertSame('d0d30aae', $files[0]['crc32']);
 		$text = $rar->getFileData($files[0]['name']);
 		$this->assertSame($files[0]['size'], strlen($text));
+		$this->assertSame($files[0]['crc32'], dechex(crc32(($text))));
 		$this->assertContains('file content', $text);
 		unset($rar);
 
@@ -161,8 +165,10 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame('7zFormat.txt', $files[0]['name']);
 		$this->assertSame(7573, $files[0]['size']);
 		$this->assertSame(0, $files[0]['compressed']);
+		$this->assertSame('3f8ccf66', $files[0]['crc32']);
 		$text = $szip->getFileData($files[0]['name']);
 		$this->assertSame($files[0]['size'], strlen($text));
+		$this->assertSame($files[0]['crc32'], dechex(crc32(($text))));
 		$this->assertStringStartsWith('7z Format description', $text);
 		unset($szip);
 
@@ -185,6 +191,7 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame('file.txt', $files[0]['name']);
 		$this->assertSame(12, $files[0]['size']);
 		$this->assertSame(0, $files[0]['compressed']);
+		$this->assertSame('d0d30aae', $files[0]['crc32']);
 		$text = $rar->getFileData($files[0]['name']);
 		$this->assertSame($files[0]['size'], strlen($text));
 		$this->assertContains('file content', $text);
@@ -610,18 +617,21 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(0, $file['compressed']);
 		$this->assertSame(0, $file['pass']);
 		$this->assertSame('593-4195342', $file['range']);
+		$this->assertSame('6dbd2a03', $file['crc32']);
 		$file = $files[4];
 		$this->assertSame('testdir/bar.txt', $file['name']);
 		$this->assertSame('main > encrypted_files.rar', $file['source']);
 		$this->assertSame(1, $file['compressed']);
 		$this->assertSame(1, $file['pass']);
 		$this->assertSame('4195152-4195183', $file['range']);
+		$this->assertSame('3b947aa0', $file['crc32']);
 		$file = $files[5];
 		$this->assertSame('foo.txt', $file['name']);
 		$this->assertSame('main > encrypted_files.rar', $file['source']);
 		$this->assertSame(0, $file['compressed']);
 		$this->assertSame(0, $file['pass']);
 		$this->assertSame('4195240-4195252', $file['range']);
+		$this->assertSame('d4ac3fee', $file['crc32']);
 
 		$content = 'foo test text';
 		$this->assertSame(RarInfo::FMT_RAR50, $rar->getArchive('encrypted_files.rar')->format);
@@ -650,6 +660,7 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(1, $file['compressed']);
 		$this->assertSame(1, $file['pass']);
 		$this->assertSame('4194509-4194556', $file['range']);
+		$this->assertSame('893202bd', $file['crc32']);
 
 		// RAR 5.0 format archive within 1.5 - 4.x archive
 		$rar->open($this->fixturesDir.'/rar/embedded_rar50.rar');
@@ -667,6 +678,7 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(1, $file['compressed']);
 		$this->assertSame(1, $file['pass']);
 		$this->assertSame('4194641-4194672', $file['range']);
+		$this->assertSame('3b947aa0', $file['crc32']);
 	}
 
 	/**

@@ -86,6 +86,7 @@ class SzipInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(0, $file['compressed']);
 		$this->assertSame(0, $file['block']);
 		$this->assertSame('32-7604', $file['range']);
+		$this->assertSame('3f8ccf66', $file['crc32']);
 		$this->assertArrayNotHasKey('is_dir', $file);
 
 		$file = $files[1];
@@ -96,6 +97,7 @@ class SzipInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(0, $file['compressed']);
 		$this->assertSame(1, $file['block']);
 		$this->assertSame('7605-7619', $file['range']);
+		$this->assertSame('1a92d0b1', $file['crc32']);
 		$this->assertArrayNotHasKey('is_dir', $file);
 
 		// With compressed substreams
@@ -112,6 +114,7 @@ class SzipInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(1, $file['compressed']);
 		$this->assertSame(0, $file['block']);
 		$this->assertSame('32-2087', $file['range']);
+		$this->assertSame('3f8ccf66', $file['crc32']);
 
 		$file = $files[1];
 		$this->assertSame('bar.txt', $file['name']);
@@ -119,6 +122,7 @@ class SzipInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(1, $file['compressed']);
 		$this->assertSame(0, $file['block']);
 		$this->assertSame('32-2087', $file['range']);
+		$this->assertSame('71afb453', $file['crc32']);
 
 		$file = $files[2];
 		$this->assertSame('foo.txt', $file['name']);
@@ -126,6 +130,7 @@ class SzipInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(1, $file['compressed']);
 		$this->assertSame(0, $file['block']);
 		$this->assertSame('32-2087', $file['range']);
+		$this->assertSame('1a92d0b1', $file['crc32']);
 
 		// With directories/empty streams
 		$szip->open($this->fixturesDir.'/store_with_empty.7z');
@@ -149,6 +154,7 @@ class SzipInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(0, $file['size']);
 		$this->assertArrayNotHasKey('block', $file);
 		$this->assertArrayNotHasKey('range', $file);
+		$this->assertArrayNotHasKey('crc32', $file);
 		$this->assertArrayNotHasKey('is_dir', $file);
 
 		$file = $files[3];
@@ -156,6 +162,7 @@ class SzipInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(0, $file['size']);
 		$this->assertSame(1, $file['is_dir']);
 		$this->assertArrayNotHasKey('block', $file);
+		$this->assertArrayNotHasKey('crc32', $file);
 		$this->assertArrayNotHasKey('range', $file);
 	}
 
@@ -177,6 +184,7 @@ class SzipInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(0, $files[0]['compressed']);
 		$data = $szip->getFileData($files[0]['name']);
 		$this->assertSame($files[0]['size'], strlen($data));
+		$this->assertSame($files[0]['crc32'], dechex(crc32($data)));
 		$this->assertStringStartsWith('7z Format description', $data);
 		$this->assertStringEndsWith("End of document\r\n", $data);
 
@@ -184,6 +192,7 @@ class SzipInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame(0, $files[1]['compressed']);
 		$data = $szip->getFileData($files[1]['name']);
 		$this->assertSame($files[1]['size'], strlen($data));
+		$this->assertSame($files[1]['crc32'], dechex(crc32($data)));
 		$this->assertSame('sample foo text', $data);
 
 		// With partial data available
@@ -249,6 +258,7 @@ class SzipInfoTest extends PHPUnit_Framework_TestCase
 		$data = $szip->extractFile($file['name']);
 		$this->assertEmpty($szip->error);
 		$this->assertSame(strlen($data), $file['size']);
+		$this->assertSame($file['crc32'], dechex(crc32($data)));
 		$this->assertStringStartsWith('7z Format description', $data);
 		$this->assertStringEndsWith("End of document\r\n", $data);
 
@@ -268,6 +278,7 @@ class SzipInfoTest extends PHPUnit_Framework_TestCase
 		$data = $szip->extractFile($file['name'], null, 'password');
 		$this->assertEmpty($szip->error, $szip->error);
 		$this->assertSame(strlen($data), $file['size']);
+		$this->assertSame($file['crc32'], dechex(crc32($data)));
 		$this->assertStringStartsWith('7z Format description', $data);
 		$this->assertStringEndsWith("End of document\r\n", $data);
 
@@ -279,6 +290,7 @@ class SzipInfoTest extends PHPUnit_Framework_TestCase
 		$data = $szip->extractFile($file['name'], null, 'password');
 		$this->assertEmpty($szip->error);
 		$this->assertSame($file['size'], strlen($data));
+		$this->assertSame($file['crc32'], dechex(crc32($data)));
 	}
 
 	/**

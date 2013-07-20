@@ -51,7 +51,7 @@ require_once dirname(__FILE__).'/pipereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    2.0
+ * @version    2.1
  */
 class ZipInfo extends ArchiveReader
 {
@@ -471,6 +471,9 @@ class ZipInfo extends ArchiveReader
 			$start = $this->start + $record['offset'] + 30 + $record['file_name_length'] + $record['extra_length'];
 			$end   = min($this->end, $start + $record['uncompressed_size'] - 1);
 			$ret['range'] = "{$start}-{$end}";
+		}
+		if (!empty($record['crc32'])) {
+			$ret['crc32'] = dechex($record['crc32']);
 		}
 
 		return $ret;
