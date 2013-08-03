@@ -439,6 +439,40 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 	}
 
 	/**
+	 * When inspecting archives recursively, we should be able to filter valid
+	 * archive extensions and override the default filter regex, or disable the
+	 * filter completely.
+	 *
+	 * @depends  testAutomaticallyDetectsSupportedArchiveTypes
+	 */
+	public function testAllowsSettingExtensionsFilter()
+	{
+		$archive = new ArchiveInfo;
+		$archive->open($this->fixturesDir.'/misc/misc_in_rar.rar');
+
+		$archive->setArchiveExtensions('rar|r[0-9]+');
+		$this->assertCount(2, $archive->getArchiveList());
+		foreach ($archive->getArchiveList() as $child) {
+			$this->assertSame(ArchiveInfo::TYPE_RAR, $child->type);
+		}
+		$archive->setArchiveExtensions('zip');
+		$this->assertCount(2, $archive->getArchiveList());
+		foreach ($archive->getArchiveList() as $child) {
+			$this->assertSame(ArchiveInfo::TYPE_ZIP, $child->type);
+		}
+		$archive->setArchiveExtensions('rar|r[0-9]+|zip');
+		$this->assertCount(4, $archive->getArchiveList());
+		foreach ($archive->getArchiveList() as $child) {
+			$this->assertSame($child->type, $child->type & (ArchiveInfo::TYPE_RAR | ArchiveInfo::TYPE_ZIP));
+		}
+		$archive->setArchiveExtensions(null);
+		$this->assertCount(7, $archive->getArchiveList());
+		foreach ($archive->getArchiveList() as $child) {
+			$this->assertTrue($child->type != ArchiveInfo::TYPE_NONE);
+		}
+	}
+
+	/**
 	 * This class should work identically to RarInfo, except we should also be able
 	 * to handle any embedded RAR archives, either as chainable objects or within
 	 * flat file lists. The enhanced summary output should display the full nested
