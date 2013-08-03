@@ -167,8 +167,67 @@ class SzipInfoTest extends PHPUnit_Framework_TestCase
 	}
 
 	/**
+	 * File ranges should reflect the file data actually available in the current
+	 * source, even if only partial and/or the Start header is missing or skipped.
+	 * If no file data is available, ranges should not be included in the file info.
+	 */
+	public function testListsPackedRangesWithPartialData()
+	{
+		$szip = new SzipInfo;
+
+		// Without start header (multi-volume)
+		$file = $this->fixturesDir.'/multi_volume.7z.002';
+		$end = filesize($file) - 1;
+
+		$szip->open($file, true, array(2, $end));
+		$files = $szip->getFileList();
+		$this->assertSame('2-3508', $files[0]['range']);
+		$this->assertSame('3509-3523', $files[1]['range']);
+
+		$szip->open($file, true, array(3508, $end));
+		$files = $szip->getFileList();
+		$this->assertSame('3508-3508', $files[0]['range']);
+		$this->assertSame('3509-3523', $files[1]['range']);
+
+		$szip->open($file, true, array(3510, $end));
+		$files = $szip->getFileList();
+		$this->assertArrayNotHasKey('range', $files[0]);
+		$this->assertSame('3510-3523', $files[1]['range']);
+
+		// With start header (skipped)
+		$file = $this->fixturesDir.'/store_with_directories.7z';;
+		$end = filesize($file) - 1;
+
+		$szip->open($file, true, array(2, $end));
+		$files = $szip->getFileList();
+		$this->assertSame('32-7604', $files[0]['range']);
+		$this->assertSame('7605-7619', $files[1]['range']);
+
+		$szip->open($file, true, array(7604, $end));
+		$files = $szip->getFileList();
+		$this->assertSame('7604-7604', $files[0]['range']);
+		$this->assertSame('7605-7619', $files[1]['range']);
+		$this->assertSame('7635-7649', $files[3]['range']);
+
+		$szip->open($file, true, array(7605, $end));
+		$files = $szip->getFileList();
+		$this->assertArrayNotHasKey('range', $files[0]);
+		$this->assertSame('7605-7619', $files[1]['range']);
+		$this->assertSame('7635-7649', $files[3]['range']);
+
+		$szip->open($file, true, array(7640, $end));
+		$files = $szip->getFileList();
+		$this->assertArrayNotHasKey('range', $files[0]);
+		$this->assertArrayNotHasKey('range', $files[1]);
+		$this->assertArrayNotHasKey('range', $files[2]);
+		$this->assertSame('7640-7649', $files[3]['range']);
+	}
+
+	/**
 	 * If the archive files aren't compressed, we should just be able to extract
 	 * the file data and use it as is.
+	 *
+	 * @depends testListsPackedRangesWithPartialData
 	 */
 	public function testExtractsUncompressedFileData()
 	{

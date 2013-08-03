@@ -41,7 +41,7 @@ require_once dirname(__FILE__).'/pipereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.2
+ * @version    1.3
  */
 class SzipInfo extends ArchiveReader
 {
@@ -51,18 +51,13 @@ class SzipInfo extends ArchiveReader
 	 * 7z file format values
 	 */
 
-	// General properties
-	const PROPERTY_END                     = 0x00;
-	const PROPERTY_HEADER                  = 0x01;
-	const PROPERTY_ENCODED_HEADER          = 0x17;
-	const PROPERTY_START_POSITION          = 0x18;
-	const PROPERTY_DUMMY                   = 0x19;
-
 	// Main header types
+	const PROPERTY_HEADER                  = 0x01;
 	const PROPERTY_ARCHIVE_PROPERTIES      = 0x02;
 	const PROPERTY_ADDITIONAL_STREAMS_INFO = 0x03;
 	const PROPERTY_MAIN_STREAMS_INFO       = 0x04;
 	const PROPERTY_FILES_INFO              = 0x05;
+	const PROPERTY_ENCODED_HEADER          = 0x17;
 
 	// Streams Info
 	const PROPERTY_PACK_INFO               = 0x06;
@@ -89,7 +84,12 @@ class SzipInfo extends ArchiveReader
 	const PROPERTY_LAST_ACCESS_TIME        = 0x13;
 	const PROPERTY_LAST_WRITE_TIME         = 0x14;
 	const PROPERTY_ATTRIBUTES              = 0x15;
+
+	// General properties
+	const PROPERTY_END                     = 0x00;
 	const PROPERTY_COMMENT                 = 0x16;
+	const PROPERTY_START_POSITION          = 0x18;
+	const PROPERTY_DUMMY                   = 0x19;
 
 	// Encoding methods
 	const METHOD_COPY      = '00';
@@ -1286,28 +1286,29 @@ class SzipInfo extends ArchiveReader
 
 		if ($startHeader) {
 			$start = $this->start + $startHeader['data_offset'];
+			$end   = $start + array_sum($packSizes) - 1;
 		} else {
+			$start = $this->start;
 			if ($encodedHeader) {
-				$start = $encodedHeader['offset'] - $encodedHeader['pack_sizes'][0] - array_sum($packSizes);
+				$end = $start + $encodedHeader['offset'] - $encodedHeader['pack_sizes'][0] - 1;
 			} else {
-				$start = $mainHeader['offset'] - array_sum($packSizes);
+				$end = $start + $mainHeader['offset'] - 1;
 			}
-			$start += $this->start;
 		}
 
 		$ranges = array();
-		foreach ($packSizes as $size) {
-			$end = $start + $size - 1;
-			if ($end < 0) {
+		$blockEnd = $end;
+		foreach (array_reverse($packSizes) as $size) {
+			if ($blockEnd < $start) {
 				$ranges[] = null;
-			} else {
-				$start = max(0, $start);
-				$ranges[] = "{$start}-{$end}";
-				$start = $end + 1;
+				continue;
 			}
+			$blockStart = max($start, $blockEnd - $size + 1);
+			$ranges[]   = "{$blockStart}-{$blockEnd}";
+			$blockEnd  -= $size;
 		}
 
-		return $ranges;
+		return array_reverse($ranges);
 	}
 
 	/**
