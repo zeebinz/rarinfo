@@ -178,6 +178,7 @@ SzipInfo (extends ArchiveReader)
 --------------------------------
 Class for inspecting the contents of 7-zip (.7z) archives.
 
+- 1.4 Improved processing of substreams info
 - 1.3 Fixed getPackedRanges() output
 - 1.2 Added CRC32 checksums to the file list output
 - 1.1 Fixed parsing of substream digests

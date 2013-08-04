@@ -41,7 +41,7 @@ require_once dirname(__FILE__).'/pipereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2013 Hecks
  * @license    Modified BSD
- * @version    1.3
+ * @version    1.4
  */
 class SzipInfo extends ArchiveReader
 {
@@ -657,13 +657,12 @@ class SzipInfo extends ArchiveReader
 		}
 
 		// Unpack Info
-		$header['num_folders'] = 0;
 		if ($nid == self::PROPERTY_UNPACK_INFO) {
 			if (!$this->processUnpackInfo($header))
 				return false;
+			$this->blockCount = $header['num_folders'];
 			$nid = ord($this->read(1));
 		}
-		$this->blockCount = $header['num_folders'];
 
 		// Substreams Info
 		if ($nid == self::PROPERTY_SUBSTREAMS_INFO) {
@@ -860,6 +859,10 @@ class SzipInfo extends ArchiveReader
 	 */
 	protected function processSubstreamsInfo(&$header)
 	{
+		if (empty($header['folders'])) {
+			$this->error = 'No folders found, cannot process substreams info';
+			return false;
+		}
 		$nid = ord($this->read(1));
 		$subs = array();
 
