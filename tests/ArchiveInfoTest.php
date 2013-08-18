@@ -84,6 +84,28 @@ class ArchiveInfoTest extends PHPUnit_Framework_TestCase
 	}
 
 	/**
+	 * We should be able to use isset() or empty() to test any public properties
+	 * on the stored readers transparently.
+	 */
+	public function testCanVerifyThatReaderPropertiesAreSetOrEmpty()
+	{
+		$archive = new ArchiveInfo;
+		$archive->open($this->fixturesDir.'/rar/encrypted_headers.rar');
+		$this->assertTrue($archive->isEncrypted);
+		$this->assertTrue(isset($archive->isEncrypted));
+		$this->assertFalse(empty($archive->isEncrypted));
+
+		$archive->open($this->fixturesDir.'/rar/4mb.rar');
+		$this->assertFalse($archive->isEncrypted);
+		$this->assertTrue(isset($archive->isEncrypted));
+		$this->assertTrue(empty($archive->isEncrypted));
+
+		$archive->open($this->fixturesDir.'/par2/testdata.par2');
+		$this->assertFalse(isset($archive->isEncrypted));
+		$this->assertTrue(empty($archive->isEncrypted));
+	}
+
+	/**
 	 * The next main responsibility of this class is to handle parsing of any
 	 * supported archive types that have been embedded in others. We'll start
 	 * here by testing two basic samples by chaining archive calls.
