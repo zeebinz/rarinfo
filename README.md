@@ -8,6 +8,7 @@ ArchiveReader
 Abstract base class for the various file inspectors that defines the basic API
 and implements common methods for file/data handling.
 
+- 2.9 Added clearstatcache() to default reset
 - 2.8 Changed getFileList() to return empty array on error
 - 2.7 Added strposall() static method
 - 2.6 Added methods for creating temporary files
