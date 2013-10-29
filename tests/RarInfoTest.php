@@ -80,6 +80,7 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame('66-83', $files[0]['range']);
 		$this->assertSame('52b28202', $files[0]['crc32']);
 		$this->assertArrayNotHasKey('split', $files[0]);
+		$this->assertArrayNotHasKey('split_after', $files[0]);
 		$this->assertArrayNotHasKey('is_dir', $files[0]);
 
 		$this->assertSame('file2.txt', $files[1]['name']);
@@ -90,6 +91,7 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame('130-4979', $files[1]['range']);
 		$this->assertSame('e0222912', $files[1]['crc32']);
 		$this->assertArrayHasKey('split', $files[1]);
+		$this->assertArrayHasKey('split_after', $files[1]);
 		$this->assertArrayNotHasKey('is_dir', $files[1]);
 	}
 

@@ -55,6 +55,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 5.4 Added 'split_after' field to file listing to assist CRC32 checks
 - 5.3 Added CRC32 checksums to the file list output
 - 5.2 Changed getFileList() to return empty array on error
 - 5.1 Speeded up findFileHeader() method quite a bit
