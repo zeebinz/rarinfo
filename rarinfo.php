@@ -50,7 +50,7 @@ require_once dirname(__FILE__).'/pipereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2014 Hecks
  * @license    Modified BSD
- * @version    5.5
+ * @version    5.6
  */
 class RarInfo extends ArchiveReader
 {
@@ -1137,6 +1137,7 @@ class RarInfo extends ArchiveReader
 	 * @param   array  $block      the block to process
 	 * @param   array  $quickOpen  is this a Quick Open cached block?
 	 * @return  void
+	 * @throws  RuntimeException
 	 */
 	protected function processBlockR50(&$block, $quickOpen=false)
 	{
@@ -1172,6 +1173,9 @@ class RarInfo extends ArchiveReader
 		elseif ($block['head_type'] == self::R50_BLOCK_FILE
 		     || $block['head_type'] == self::R50_BLOCK_SERVICE
 		) {
+			if (!isset($block['data_size']))
+				throw new RuntimeException('Required block data size is missing');
+
 			$block['flags']     = $this->getVarInt();
 			$block['pack_size'] = $block['data_size'];
 			$block['unp_size']  = $this->getVarInt();
