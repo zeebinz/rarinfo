@@ -48,9 +48,9 @@ require_once dirname(__FILE__).'/pipereader.php';
  * error messages and allow a forced search for valid File Header blocks.
  *
  * @author     Hecks
- * @copyright  (c) 2010-2013 Hecks
+ * @copyright  (c) 2010-2014 Hecks
  * @license    Modified BSD
- * @version    5.4
+ * @version    5.5
  */
 class RarInfo extends ArchiveReader
 {
@@ -557,6 +557,11 @@ class RarInfo extends ArchiveReader
 
 		// Set the data file source
 		$source = $this->file ? $this->file : $this->createTempDataFile();
+
+		// Ensure that internal file paths are valid for Mac/*nix
+		if (DIRECTORY_SEPARATOR !== '\\') {
+			$filename = str_replace('\\', '/', $filename);
+		}
 
 		// Set the external command
 		$pass = $password ? '-p'.escapeshellarg($password) : '-p-';
