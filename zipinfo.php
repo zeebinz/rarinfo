@@ -728,7 +728,12 @@ class ZipInfo extends ArchiveReader
 	 */
 	protected function processExtraFields(&$record)
 	{
-		$end = $this->offset + $record['extra_length'];
+		if ($this->offset < $this->length) {
+			$end = $this->offset + $record['extra_length'];
+		} else {
+			$end = $this->length;
+		}
+
 		while ($this->offset < $end)
 		{
 			$field = array('type_name' => '');
