@@ -50,7 +50,7 @@ require_once dirname(__FILE__).'/pipereader.php';
  * @author     Hecks
  * @copyright  (c) 2010-2014 Hecks
  * @license    Modified BSD
- * @version    5.6
+ * @version    5.7
  */
 class RarInfo extends ArchiveReader
 {
@@ -1241,7 +1241,7 @@ class RarInfo extends ArchiveReader
 	 */
 	protected function processQuickOpenRecords(&$block)
 	{
-		$end = $this->offset + $block['data_size'];
+		$end = min($this->offset + $block['data_size'], $this->length);
 		while ($this->offset < $end) {
 
 			// Start the cache record
@@ -1274,7 +1274,7 @@ class RarInfo extends ArchiveReader
 	 */
 	protected function processExtraRecords(&$block)
 	{
-		$end = $this->offset + $block['extra_size'];
+		$end = min($this->offset + $block['extra_size'], $this->length);
 		while ($this->offset < $end) {
 
 			// Start with the record size and type

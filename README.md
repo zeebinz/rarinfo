@@ -56,6 +56,7 @@ RarInfo (extends ArchiveReader)
 -------------------------------
 Class for inspecting the contents of RAR archives.
 
+- 5.7 Fixes out of memory error with corrupt RAR50 files, issue #9
 - 5.6 Improved handling of corrupt RAR 5.0 archives
 - 5.5 Fixed conversion of external client file paths
 - 5.4 Added 'split_after' field to file listing to assist CRC32 checks

@@ -320,4 +320,35 @@ class RarInfoTest extends PHPUnit_Framework_TestCase
 		$this->assertSame($file['size'], strlen($data));
 	}
 
+	/**
+	 * Fixes issue #9, memory exhaustion on bad RAR50 file
+	 *
+	 * @depends  testBasicRar50Support
+	 */
+	public function testRar50BadExtraSize()
+	{
+		$rar = new RarInfo;
+		$rar->open($this->fixturesDir.'/rar50_bad_extra_size.rar');
+
+		$this->assertSame(RarInfo::FMT_RAR50, $rar->format);
+		$this->assertEmpty($rar->error);
+
+		// The third file entry is corrupt, so isn't displayed in file list
+		$this->assertSame(3, $rar->fileCount);
+		$files = $rar->getFileList();
+		$this->assertCount(2, $files);
+
+		// Bad block, header size points beyond file end
+		$blocks = $rar->getBlocks();
+		$this->assertSame(5, count($blocks));
+		$this->assertSame('File', $blocks[4]['type']);
+		$this->assertSame(11, $blocks[4]['extra_size']);
+		$this->assertEmpty($blocks[4]['file_name']);
+
+		// Comments in summary
+		$summary = $rar->getSummary();
+		$this->assertArrayHasKey('comments', $summary);
+		$this->assertStringStartsWith('German:', $summary['comments']);
+	}
+
 } // End RarInfoTest
