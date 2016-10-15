@@ -1,0 +1,27 @@
+{
+  "name": "zeebinz/rarinfo",
+  "description": "PHP archive reader helper class",
+  "type": "library",
+  "license": "",
+  "authors": [
+    {
+      "name": "zeebinz"
+    }
+  ],
+  "require": {
+    "php": ">=5.6.0"
+  },
+  "autoload": {
+    "classmap": [
+      "ArchiveInfo.php",
+      "ArchiveReader.php",
+      "Par2Info.php",
+      "PipeReader.php",
+      "RarInfo.php",
+      "SfvInfo.php",
+      "SrrInfo.php",
+      "SzipInfo.php",
+      "ZipInfo.php"
+    ]
+  }
+}
