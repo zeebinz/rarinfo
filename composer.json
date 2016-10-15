@@ -13,15 +13,15 @@
   },
   "autoload": {
     "classmap": [
-      "ArchiveInfo.php",
-      "ArchiveReader.php",
-      "Par2Info.php",
-      "PipeReader.php",
-      "RarInfo.php",
-      "SfvInfo.php",
-      "SrrInfo.php",
-      "SzipInfo.php",
-      "ZipInfo.php"
+      "archiveinfo.php",
+      "archivereader.php",
+      "par2info.php",
+      "pipereader.php",
+      "rarrnfo.php",
+      "sfvinfo.php",
+      "srrinfo.php",
+      "szipinfo.php",
+      "zipinfo.php"
     ]
   }
 }
